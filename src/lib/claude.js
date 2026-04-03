@@ -1,8 +1,8 @@
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+import { supabase } from './supabase'
 
-const CLAUDE_MODEL = 'claude-sonnet-4-20250514'
-const API_URL = 'https://api.anthropic.com/v1/messages'
+const EDGE_FN_URL = 'https://vzbswcoogdarlzqstumy.supabase.co/functions/v1/claude-proxy'
 
 export function buildSystemPrompt(context, userName) {
   const { monthRef, budgetItems, transactions, goals, upcomingBills } = context
@@ -37,49 +37,61 @@ ${(upcomingBills || []).map(b => `- ${b.name}: R$${b.amount} vence em ${b.due_da
 1. NUNCA sugira alterar, remover ou reduzir valores de itens marcados como [FIXO].
 2. Ao sugerir redistribuição de orçamento para uma meta, use apenas o saldo disponível de itens variáveis.
 3. Quando o usuário relatar um gasto ou intenção de compra, faça perguntas de clarificação se necessário (valor, categoria, prazo).
-4. Sempre que sugerir lançar dados, retorne um JSON estruturado NO FINAL da resposta, entre as tags <ACTION> e </ACTION>, com este formato:
+4. Sempre que sugerir lançar dados, retorne um JSON estruturado NO FINAL da resposta, entre as tags <ACTION> e </ACTION>. Use SEMPRE este formato:
+
+Para UM item:
 {
   "type": "add_transaction" | "add_goal" | "add_bill" | "update_budget",
-  "data": { ... campos relevantes ... },
+  "data": { "description": "...", "amount": 100, "type": "expense", ... },
   "description": "Resumo legível da ação"
 }
+
+Para MÚLTIPLOS itens do mesmo tipo, use "items" como array:
+{
+  "type": "add_transaction",
+  "data": { "items": [ {"description":"...", "amount": 100}, {"description":"...", "amount": 200} ] },
+  "description": "Resumo legível"
+}
+
+NUNCA misture tipos diferentes em uma única ação. Prefira ações simples e únicas sempre que possível.
 5. Fale sempre em português brasileiro, de forma amigável e direta.
 6. Dê insights semanais sobre distribuição de gastos quando relevante.`
 }
 
-export async function sendToClaudeAPI(messages, systemPrompt, apiKey) {
-  const resp = await fetch(API_URL, {
+export async function sendToClaudeAPI(messages, systemPrompt) {
+  // Pega o token JWT do usuário logado para autenticar na Edge Function
+  const { data: { session } } = await supabase.auth.getSession()
+  const token = session?.access_token
+  if (!token) throw new Error('Usuário não autenticado.')
+
+  const resp = await fetch(EDGE_FN_URL, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
+      'Authorization': `Bearer ${token}`,
     },
-    body: JSON.stringify({
-      model: CLAUDE_MODEL,
-      max_tokens: 1024,
-      system: systemPrompt,
-      messages,
-    }),
+    body: JSON.stringify({ messages, system: systemPrompt }),
   })
 
   if (!resp.ok) {
-    const err = await resp.json()
-    throw new Error(err.error?.message || 'Erro na API do Claude')
+    const err = await resp.json().catch(() => ({}))
+    const msg = err.error || `Erro ${resp.status}`
+    if (msg.includes('ANTHROPIC_API_KEY not configured')) {
+      throw new Error('Chave da API não configurada no Supabase. Siga as instruções abaixo.')
+    }
+    throw new Error(msg)
   }
 
   const data = await resp.json()
-  return data.content[0]?.text || ''
+  if (data.error) throw new Error(data.error.message || JSON.stringify(data.error))
+  return data.content?.[0]?.text || ''
 }
 
 export function extractAction(text) {
   const match = text.match(/<ACTION>([\s\S]*?)<\/ACTION>/)
   if (!match) return null
-  try {
-    return JSON.parse(match[1].trim())
-  } catch {
-    return null
-  }
+  try { return JSON.parse(match[1].trim()) }
+  catch { return null }
 }
 
 export function cleanText(text) {

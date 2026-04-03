@@ -15,27 +15,68 @@ function TypingDot() {
   )
 }
 
+function renderValue(v) {
+  if (v === null || v === undefined) return '—'
+  if (Array.isArray(v)) {
+    return (
+      <div className="ml-2 border-l border-gray-600 pl-2 space-y-1">
+        {v.map((item, i) => (
+          <div key={i}>
+            {typeof item === 'object'
+              ? Object.entries(item).map(([k2, v2]) => (
+                  <div key={k2} className="flex gap-2">
+                    <span className="text-gray-500">{k2}:</span>
+                    <span className="text-emerald-300">{String(v2)}</span>
+                  </div>
+                ))
+              : <span className="text-emerald-300">{String(item)}</span>
+            }
+          </div>
+        ))}
+      </div>
+    )
+  }
+  if (typeof v === 'object') return <span className="text-emerald-300">{JSON.stringify(v)}</span>
+  return <span className="text-emerald-300">{String(v)}</span>
+}
+
 function ActionCard({ action, onApprove, onDismiss, approved }) {
   if (!action) return null
-  const typeLabels = { add_transaction: 'Lançamento', add_goal: 'Meta', add_bill: 'Conta', update_budget: 'Orçamento' }
+  const typeLabels = { add_transaction: 'Lançamento', add_goal: 'Meta', add_bill: 'Conta', update_budget: 'Orçamento', add_budget_items: 'Itens de Orçamento' }
+
+  // Normaliza: items array vira lista legível
+  const items = action.data?.items || (action.data && !action.data.items ? [action.data] : [])
+  const isList = items.length > 1
+
   return (
     <div className="chat-action-card mt-2">
       <div className="flex items-center gap-2 mb-2">
         <Sparkles size={14} className="text-emerald-400"/>
         <p className="text-xs font-bold text-emerald-400 uppercase tracking-wide">Ação sugerida pela IA</p>
         <span className="badge bg-emerald-500/20 text-emerald-400">{typeLabels[action.type] || action.type}</span>
+        {isList && <span className="badge bg-gray-700 text-gray-300">{items.length} itens</span>}
       </div>
       <p className="text-sm text-gray-200 mb-3">{action.description}</p>
-      {action.data && (
-        <div className="bg-black/20 rounded-lg p-2 mb-3 text-xs font-mono text-gray-300 overflow-x-auto">
-          {Object.entries(action.data).map(([k, v]) => (
-            <div key={k} className="flex gap-2">
-              <span className="text-gray-500">{k}:</span>
-              <span className="text-emerald-300">{String(v)}</span>
-            </div>
-          ))}
-        </div>
-      )}
+
+      <div className="bg-black/20 rounded-lg p-2 mb-3 text-xs font-mono text-gray-300 overflow-x-auto space-y-2">
+        {isList ? items.map((item, i) => (
+          <div key={i} className="border-b border-gray-700 pb-1 last:border-0 last:pb-0">
+            <p className="text-gray-500 mb-0.5">#{i + 1}</p>
+            {Object.entries(item).map(([k, v]) => (
+              <div key={k} className="flex gap-2">
+                <span className="text-gray-500 flex-shrink-0">{k}:</span>
+                <span className="text-emerald-300">{String(v)}</span>
+              </div>
+            ))}
+          </div>
+        )) : Object.entries(action.data || {}).map(([k, v]) => (
+          <div key={k} className="flex gap-2 flex-wrap">
+            <span className="text-gray-500 flex-shrink-0">{k}:</span>
+            {renderValue(v)}
+          </div>
+        ))}
+      </div>
+
       {!approved ? (
         <div className="flex gap-2">
           <button onClick={onApprove} className="btn-primary flex-1 text-sm flex items-center justify-center gap-1.5">
@@ -95,7 +136,7 @@ export default function ChatPage() {
   const bottomRef = useRef(null)
   const textareaRef = useRef(null)
 
-  const apiKey = localStorage.getItem('claude_api_key') || ''
+  // API key gerenciada pela Edge Function do Supabase
 
   // Load history
   useEffect(() => {
@@ -124,10 +165,6 @@ export default function ChatPage() {
   async function sendMessage(text) {
     const msgText = text || input.trim()
     if (!msgText || loading) return
-    if (!apiKey) {
-      alert('Configure sua Claude API Key nas Configurações antes de usar o chat.')
-      return
-    }
 
     setInput('')
 
@@ -147,7 +184,7 @@ export default function ChatPage() {
       const historyMsgs = messages.slice(-20).map(m => ({ role: m.role === 'assistant' ? 'assistant' : 'user', content: m.content }))
       const apiMessages = [...historyMsgs, { role: 'user', content: msgText }]
 
-      const responseText = await sendToClaudeAPI(apiMessages, systemPrompt, apiKey)
+      const responseText = await sendToClaudeAPI(apiMessages, systemPrompt)
       const action = extractAction(responseText)
       const cleanedText = cleanText(responseText)
 
@@ -179,12 +216,27 @@ export default function ChatPage() {
   async function approveAction(msgId, action) {
     try {
       const { type, data } = action
+      // Normaliza: aceita data direto ou data.items como array
+      const items = data?.items ? data.items : [data]
+
       if (type === 'add_transaction') {
-        await addTransaction({ ...data, user_id: user.id, date: data.date || format(new Date(), 'yyyy-MM-dd') })
+        for (const item of items) {
+          await addTransaction({ ...item, user_id: user.id, date: item.date || format(new Date(), 'yyyy-MM-dd') })
+        }
       } else if (type === 'add_bill') {
-        await upsertBill({ ...data, user_id: user.id })
+        for (const item of items) {
+          await upsertBill({ ...item, user_id: user.id })
+        }
       } else if (type === 'add_goal') {
-        await upsertGoal({ ...data, user_id: user.id })
+        for (const item of items) {
+          await upsertGoal({ ...item, user_id: user.id })
+        }
+      } else if (type === 'update_budget' || type === 'add_budget_items') {
+        // Para orçamento: cada item vai para budget_items
+        const { upsertBudgetItem } = await import('../lib/db')
+        for (const item of items) {
+          await upsertBudgetItem({ ...item })
+        }
       }
       setApprovedActions(prev => ({ ...prev, [msgId]: true }))
     } catch (err) {
@@ -223,12 +275,6 @@ export default function ChatPage() {
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 md:px-6 py-4 space-y-4">
-        {!apiKey && (
-          <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 text-center">
-            <p className="text-sm text-amber-400">⚠️ Configure sua Claude API Key em <strong>Configurações</strong> para usar o chat.</p>
-          </div>
-        )}
-
         {messages.map(msg => (
           <Message
             key={msg.id}

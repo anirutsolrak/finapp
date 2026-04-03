@@ -33,11 +33,22 @@ export function AuthProvider({ children }) {
   }
 
   async function signUp(email, password, fullName) {
-    const { error } = await supabase.auth.signUp({
-      email, password,
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
       options: { data: { full_name: fullName } }
     })
-    return { error }
+
+    // Supabase pode retornar user mas sem session se confirmação de e-mail estiver ativa
+    if (!error && data?.user && !data?.session) {
+      return {
+        error: null,
+        needsConfirmation: true,
+        message: 'Cadastro realizado! Verifique seu e-mail para confirmar a conta.'
+      }
+    }
+
+    return { error, needsConfirmation: false }
   }
 
   async function signOut() {
