@@ -17,8 +17,11 @@ export const deleteBudgetItem = (id) =>
 
 // ─── TRANSACTIONS ────────────────────────────────────────────────────────────
 export const getTransactions = (monthRef) => {
-  const q = supabase.from('transactions').select('*, categories(*), budget_items(name), profiles(full_name)').order('date', { ascending: false })
-  if (monthRef) q.eq('month_ref', monthRef)
+  let q = supabase
+    .from('transactions')
+    .select('*, categories(*), budget_items(name)')
+    .order('date', { ascending: false })
+  if (monthRef) q = q.eq('month_ref', monthRef)
   return q
 }
 
@@ -32,8 +35,14 @@ export const deleteTransaction = (id) =>
   supabase.from('transactions').delete().eq('id', id)
 
 // ─── BILLS ──────────────────────────────────────────────────────────────────
-export const getBills = () =>
-  supabase.from('bills').select('*').order('due_date')
+export const getBills = (monthRef) => {
+  const q = supabase.from('bills').select('*').order('due_date')
+  if (monthRef) q.eq('month_ref', monthRef)
+  return q
+}
+
+export const getAllBills = () =>
+  supabase.from('bills').select('*').order('month_ref', { ascending: false }).order('due_date')
 
 export const getUpcomingBills = (days = 7) => {
   const today = format(new Date(), 'yyyy-MM-dd')

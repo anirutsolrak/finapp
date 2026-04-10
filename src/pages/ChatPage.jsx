@@ -3,7 +3,7 @@ import { format } from 'date-fns'
 import { Send, Plus, Loader2, Bot, User, CheckCircle, Edit2, Trash2, Sparkles } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { sendToClaudeAPI, buildSystemPrompt, extractAction, cleanText } from '../lib/claude'
-import { getAIContext, saveChatMessage, getChatMessages, clearChat, addTransaction, upsertBill, upsertGoal } from '../lib/db'
+import { getAIContext, saveChatMessage, getChatMessages, clearChat, addTransaction, upsertBill, upsertGoal, upsertBudgetItem } from '../lib/db'
 
 function TypingDot() {
   return (
@@ -216,28 +216,75 @@ export default function ChatPage() {
   async function approveAction(msgId, action) {
     try {
       const { type, data } = action
-      // Normaliza: aceita data direto ou data.items como array
       const items = data?.items ? data.items : [data]
 
-      if (type === 'add_transaction') {
-        for (const item of items) {
-          await addTransaction({ ...item, user_id: user.id, date: item.date || format(new Date(), 'yyyy-MM-dd') })
-        }
-      } else if (type === 'add_bill') {
-        for (const item of items) {
-          await upsertBill({ ...item, user_id: user.id })
-        }
-      } else if (type === 'add_goal') {
-        for (const item of items) {
-          await upsertGoal({ ...item, user_id: user.id })
-        }
-      } else if (type === 'update_budget' || type === 'add_budget_items') {
-        // Para orçamento: cada item vai para budget_items
-        const { upsertBudgetItem } = await import('../lib/db')
-        for (const item of items) {
-          await upsertBudgetItem({ ...item })
+      // Checa erro do Supabase e lança se necessário
+      function check({ error }) {
+        if (error) throw new Error(error.message || JSON.stringify(error))
+      }
+
+      // Mapeia campos que a IA pode usar para os nomes reais do banco
+      function toTransaction(item) {
+        return {
+          user_id: user.id,
+          description: item.description || item.name || item.title || 'Sem descrição',
+          amount: parseFloat(item.amount || item.value || 0),
+          type: item.transaction_type || item.type || 'expense',
+          date: item.date || format(new Date(), 'yyyy-MM-dd'),
+          is_paid: item.is_paid ?? true,
+          notes: item.notes || null,
         }
       }
+
+      function toBudgetItem(item) {
+        return {
+          name: item.name || item.description || item.title || 'Sem nome',
+          planned_amount: parseFloat(item.planned_amount || item.amount || item.value || 0),
+          is_fixed: item.is_fixed ?? item.fixed ?? false,
+          due_day: item.due_day || null,
+          recurrence: item.recurrence || 'monthly',
+          notes: item.notes || null,
+        }
+      }
+
+      function toBill(item) {
+        return {
+          user_id: user.id,
+          name: item.name || item.description || item.title || 'Sem nome',
+          amount: parseFloat(item.amount || item.value || 0),
+          due_date: item.due_date || item.date || format(new Date(), 'yyyy-MM-dd'),
+          is_fixed: item.is_fixed ?? item.fixed ?? false,
+          recurrence: item.recurrence || 'monthly',
+          alert_days_before: item.alert_days_before || 3,
+        }
+      }
+
+      function toGoal(item) {
+        return {
+          user_id: user.id,
+          name: item.name || item.description || item.title || 'Sem nome',
+          target_amount: parseFloat(item.target_amount || item.amount || 0),
+          current_amount: parseFloat(item.current_amount || 0),
+          monthly_contribution: parseFloat(item.monthly_contribution || 0),
+          target_date: item.target_date || item.deadline || null,
+          is_fixed: item.is_fixed ?? false,
+          priority: item.priority || 1,
+        }
+      }
+
+      if (type === 'add_transaction') {
+        for (const item of items) check(await addTransaction(toTransaction(item)))
+      } else if (type === 'add_bill') {
+        for (const item of items) check(await upsertBill(toBill(item)))
+      } else if (type === 'add_goal') {
+        for (const item of items) check(await upsertGoal(toGoal(item)))
+      } else if (type === 'update_budget' || type === 'add_budget_items') {
+        for (const item of items) check(await upsertBudgetItem(toBudgetItem(item)))
+      } else {
+        // Tipo desconhecido: tenta salvar como transação
+        for (const item of items) check(await addTransaction(toTransaction(item)))
+      }
+
       setApprovedActions(prev => ({ ...prev, [msgId]: true }))
     } catch (err) {
       alert('Erro ao salvar: ' + err.message)

@@ -59,16 +59,21 @@ export function useTransactions(monthRef) {
   return { transactions, loading, refetch: load }
 }
 
-export function useBills() {
+export function useBills(monthRef) {
   const [bills, setBills] = useState([])
+  const [allBills, setAllBills] = useState([])
   const [loading, setLoading] = useState(true)
 
   const load = useCallback(async () => {
     setLoading(true)
-    const { data } = await db.getBills()
-    setBills(data || [])
+    const [{ data: monthly }, { data: all }] = await Promise.all([
+      db.getBills(monthRef),
+      db.getAllBills(),
+    ])
+    setBills(monthly || [])
+    setAllBills(all || [])
     setLoading(false)
-  }, [])
+  }, [monthRef])
 
   useEffect(() => { load() }, [load])
 
@@ -77,7 +82,7 @@ export function useBills() {
     return () => supabase.removeChannel(ch)
   }, [load])
 
-  return { bills, loading, refetch: load }
+  return { bills, allBills, loading, refetch: load }
 }
 
 export function useGoals() {

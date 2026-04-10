@@ -1,30 +1,90 @@
-import { useState } from 'react'
-import { format, differenceInDays, parseISO } from 'date-fns'
-import { Plus, CheckCircle2, Circle, Trash2, Bell, Edit2, Lock } from 'lucide-react'
+import { useState, useMemo } from 'react'
+import { format, differenceInDays, parseISO, addMonths, subMonths } from 'date-fns'
+import { ptBR } from 'date-fns/locale'
+import { Plus, CheckCircle2, Circle, Trash2, Edit2, Lock, Bell, Link, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, LayoutList, Calendar } from 'lucide-react'
 import { useBills } from '../hooks/useData'
 import { upsertBill, markBillPaid, deleteBill } from '../lib/db'
 import { useAuth } from '../contexts/AuthContext'
 
-const EMPTY = { name: '', amount: '', due_date: format(new Date(), 'yyyy-MM-dd'), is_fixed: false, recurrence: 'monthly', alert_days_before: 3 }
+const EMPTY = { name: '', amount: '', due_date: format(new Date(), 'yyyy-MM-dd'), is_fixed: false, recurrence: 'none', alert_days_before: 3 }
 
-function getBillStatus(bill) {
-  if (bill.is_paid) return { label: 'Pago', color: 'text-emerald-400', bg: 'bg-emerald-500/10 border-emerald-500/20' }
+function getStatus(bill) {
+  if (bill.is_paid) return { label: bill.paid_at ? `Pago em ${format(parseISO(bill.paid_at), 'dd/MM')}` : 'Pago', color: 'text-emerald-400', bg: 'bg-gray-900 border-gray-800' }
   const days = differenceInDays(parseISO(bill.due_date), new Date())
-  if (days < 0) return { label: `Vencida há ${Math.abs(days)}d`, color: 'text-red-400', bg: 'bg-red-500/10 border-red-500/20' }
-  if (days === 0) return { label: 'Vence hoje!', color: 'text-red-400', bg: 'bg-red-500/10 border-red-500/20' }
-  if (days <= 3) return { label: `Vence em ${days}d`, color: 'text-amber-400', bg: 'bg-amber-500/10 border-amber-500/20' }
-  return { label: `Vence em ${days}d`, color: 'text-gray-400', bg: 'bg-gray-800 border-gray-700' }
+  if (days < 0)   return { label: `Venceu há ${Math.abs(days)}d`, color: 'text-red-400',   bg: 'bg-red-500/10 border-red-500/30' }
+  if (days === 0)  return { label: 'Vence hoje!',                  color: 'text-red-400',   bg: 'bg-red-500/10 border-red-500/30' }
+  if (days <= 3)   return { label: `Vence em ${days}d`,            color: 'text-amber-400', bg: 'bg-amber-500/10 border-amber-500/30' }
+  return           { label: `Vence em ${days}d`,                   color: 'text-gray-500',  bg: 'bg-gray-900 border-gray-800' }
 }
 
-function BillModal({ initial, onClose, onSaved, userId }) {
-  const [form, setForm] = useState(initial?.id ? initial : EMPTY)
+function BillRow({ bill, onToggle, onEdit, onDelete }) {
+  const st = getStatus(bill)
+  const fromPlan = !!bill.budget_item_id
+  return (
+    <div className={`flex items-center gap-3 p-3 rounded-xl border animate-in ${st.bg}`}>
+      <button onClick={() => onToggle(bill)} className={`flex-shrink-0 transition-colors ${bill.is_paid ? 'text-emerald-400' : 'text-gray-600 hover:text-emerald-400'}`}>
+        {bill.is_paid ? <CheckCircle2 size={22}/> : <Circle size={22}/>}
+      </button>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <p className={`text-sm font-medium truncate ${bill.is_paid ? 'text-gray-500 line-through' : 'text-white'}`}>{bill.name}</p>
+          {bill.is_fixed && <Lock size={10} className="text-amber-400 flex-shrink-0" title="Fixo — renova todo mês"/>}
+          {fromPlan && <Link size={10} className="text-emerald-700 flex-shrink-0" title="Gerado pelo Planejamento"/>}
+        </div>
+        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+          <span className={`text-xs font-medium ${st.color}`}>{st.label}</span>
+          {bill.recurrence && bill.recurrence !== 'none' && (
+            <span className="text-xs text-gray-700">{bill.recurrence === 'monthly' ? '· Mensal' : '· Anual'}</span>
+          )}
+        </div>
+      </div>
+      <div className="flex items-center gap-1 flex-shrink-0">
+        {bill.amount > 0 && <p className="text-sm font-bold text-white mr-1">R$ {Number(bill.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>}
+        {!fromPlan && <button onClick={() => onEdit(bill)} className="text-gray-600 hover:text-gray-400 p-1"><Edit2 size={14}/></button>}
+        <button onClick={() => onDelete(bill)} className="text-gray-600 hover:text-red-400 p-1"><Trash2 size={14}/></button>
+      </div>
+    </div>
+  )
+}
+
+function MonthAccordion({ monthRef, bills, onToggle, onEdit, onDelete, defaultOpen }) {
+  const [open, setOpen] = useState(defaultOpen)
+  const label = format(parseISO(monthRef + '-02'), "MMMM 'de' yyyy", { locale: ptBR })
+  const total = bills.reduce((a, b) => a + Number(b.amount || 0), 0)
+  const paid = bills.filter(b => b.is_paid).reduce((a, b) => a + Number(b.amount || 0), 0)
+  const pending = bills.filter(b => !b.is_paid).length
+
+  return (
+    <div className="card overflow-hidden">
+      <button onClick={() => setOpen(o => !o)} className="w-full flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          {open ? <ChevronUp size={16} className="text-gray-500"/> : <ChevronDown size={16} className="text-gray-500"/>}
+          <p className="font-semibold text-white capitalize">{label}</p>
+          {pending > 0 && <span className="badge bg-amber-500/20 text-amber-400">{pending} pendente{pending > 1 ? 's' : ''}</span>}
+        </div>
+        <div className="text-right">
+          <p className="text-sm font-bold text-white">R$ {total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+          <p className="text-xs text-emerald-500">R$ {paid.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} pago</p>
+        </div>
+      </button>
+      {open && (
+        <div className="mt-3 pt-3 border-t border-gray-800 space-y-2">
+          {bills.map(b => <BillRow key={b.id} bill={b} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete}/>)}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ManualModal({ initial, onClose, onSaved, userId }) {
+  const [form, setForm] = useState(initial?.id && !initial.budget_item_id ? { ...initial, amount: initial.amount ?? '' } : EMPTY)
   const [saving, setSaving] = useState(false)
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
   async function save() {
-    if (!form.name || !form.due_date) return
+    if (!form.name.trim()) return
     setSaving(true)
-    await upsertBill({ ...form, amount: parseFloat(form.amount) || 0, user_id: userId })
+    await upsertBill({ ...form, amount: parseFloat(form.amount) || 0, user_id: userId, budget_item_id: null })
     onSaved(); onClose()
     setSaving(false)
   }
@@ -32,45 +92,39 @@ function BillModal({ initial, onClose, onSaved, userId }) {
   return (
     <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/60 p-4" onClick={onClose}>
       <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-md p-5 space-y-4" onClick={e => e.stopPropagation()}>
-        <h2 className="font-bold text-lg text-white">{form.id ? 'Editar' : 'Nova'} Conta</h2>
-
         <div>
-          <label className="label">Nome da conta</label>
-          <input className="input" placeholder="Ex: Aluguel, Internet..." value={form.name} onChange={e => set('name', e.target.value)} />
+          <h2 className="font-bold text-lg text-white">Lembrete manual</h2>
+          <p className="text-xs text-gray-500 mt-1">Para lembretes avulsos que não precisam estar no Planejamento</p>
         </div>
-
+        <div>
+          <label className="label">Descrição</label>
+          <input className="input" placeholder="Ex: Renovar CNH, Consulta médica..." value={form.name} onChange={e => set('name', e.target.value)} />
+        </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="label">Valor (R$)</label>
+            <label className="label">Valor (opcional)</label>
             <input className="input" type="number" step="0.01" placeholder="0,00" value={form.amount} onChange={e => set('amount', e.target.value)} />
           </div>
           <div>
-            <label className="label">Vencimento</label>
+            <label className="label">Data</label>
             <input className="input" type="date" value={form.due_date} onChange={e => set('due_date', e.target.value)} />
           </div>
         </div>
-
-        <div>
-          <label className="label">Recorrência</label>
-          <select className="input" value={form.recurrence} onChange={e => set('recurrence', e.target.value)}>
-            <option value="monthly">Mensal</option>
-            <option value="yearly">Anual</option>
-            <option value="once">Única vez</option>
-            <option value="none">Sem recorrência</option>
-          </select>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="label">Repetição</label>
+            <select className="input" value={form.recurrence} onChange={e => set('recurrence', e.target.value)}>
+              <option value="none">Não repete</option>
+              <option value="monthly">Mensal</option>
+              <option value="yearly">Anual</option>
+            </select>
+          </div>
+          <div>
+            <label className="label">Alertar (dias antes)</label>
+            <input className="input" type="number" min={1} max={30} value={form.alert_days_before} onChange={e => set('alert_days_before', parseInt(e.target.value))} />
+          </div>
         </div>
-
-        <div>
-          <label className="label">Alertar com antecedência (dias)</label>
-          <input className="input" type="number" min={1} max={30} value={form.alert_days_before} onChange={e => set('alert_days_before', parseInt(e.target.value))} />
-        </div>
-
-        <div className="flex items-center gap-2">
-          <input type="checkbox" id="fixed" checked={form.is_fixed} onChange={e => set('is_fixed', e.target.checked)} className="accent-amber-500 w-4 h-4"/>
-          <label htmlFor="fixed" className="text-sm text-gray-300">Conta fixa (não pode ser removida do orçamento)</label>
-        </div>
-
-        <div className="flex gap-2 pt-2">
+        <div className="flex gap-2 pt-1">
           <button onClick={onClose} className="btn-ghost flex-1">Cancelar</button>
           <button onClick={save} disabled={saving} className="btn-primary flex-1">{saving ? 'Salvando...' : 'Salvar'}</button>
         </div>
@@ -80,18 +134,39 @@ function BillModal({ initial, onClose, onSaved, userId }) {
 }
 
 export default function BillsPage() {
-  const { bills, loading, refetch } = useBills()
-  const { user } = useAuth()
+  const [currentDate, setCurrentDate] = useState(new Date())
+  const [viewMode, setViewMode] = useState('month') // 'month' | 'all'
+  const [filterPaid, setFilterPaid] = useState('all') // 'all' | 'pending' | 'paid'
   const [modal, setModal] = useState(null)
-  const [filter, setFilter] = useState('pending')
+  const { user } = useAuth()
 
-  const filtered = filter === 'all' ? bills : filter === 'pending' ? bills.filter(b => !b.is_paid) : bills.filter(b => b.is_paid)
+  const monthRef = format(currentDate, 'yyyy-MM')
+  const { bills, allBills, loading, refetch } = useBills(monthRef)
 
-  const alertCount = bills.filter(b => {
+  // Agrupa todas as bills por month_ref para visão acordeão
+  const billsByMonth = useMemo(() => {
+    const grouped = {}
+    allBills.forEach(b => {
+      const m = b.month_ref || 'sem-data'
+      if (!grouped[m]) grouped[m] = []
+      grouped[m].push(b)
+    })
+    return Object.entries(grouped).sort((a, b) => b[0].localeCompare(a[0]))
+  }, [allBills])
+
+  const filteredBills = bills.filter(b => {
+    if (filterPaid === 'pending') return !b.is_paid
+    if (filterPaid === 'paid') return b.is_paid
+    return true
+  })
+
+  const urgentCount = bills.filter(b => {
     if (b.is_paid) return false
-    const d = differenceInDays(parseISO(b.due_date), new Date())
-    return d <= 3
+    return differenceInDays(parseISO(b.due_date), new Date()) <= 3
   }).length
+
+  const monthTotal = bills.reduce((a, b) => a + Number(b.amount || 0), 0)
+  const monthPaid = bills.filter(b => b.is_paid).reduce((a, b) => a + Number(b.amount || 0), 0)
 
   async function togglePaid(bill) {
     await markBillPaid(bill.id, !bill.is_paid)
@@ -99,75 +174,114 @@ export default function BillsPage() {
   }
 
   async function handleDelete(bill) {
-    if (bill.is_fixed && !confirm(`"${bill.name}" é uma conta fixa. Confirma a exclusão?`)) return
-    if (!bill.is_fixed && !confirm(`Excluir "${bill.name}"?`)) return
+    if (bill.budget_item_id) {
+      alert('Este lembrete é gerado pelo Planejamento. Para removê-lo, exclua o item lá.')
+      return
+    }
+    if (!confirm(`Excluir "${bill.name}"?`)) return
     await deleteBill(bill.id)
     refetch()
   }
 
+  const monthLabel = format(currentDate, "MMMM 'de' yyyy", { locale: ptBR })
+
   return (
     <div className="space-y-5">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-white">Contas & Vencimentos</h1>
-          {alertCount > 0 && (
-            <p className="text-xs text-amber-400 flex items-center gap-1 mt-0.5">
-              <Bell size={12}/> {alertCount} conta(s) vencendo em breve
-            </p>
-          )}
+          <h1 className="text-xl font-bold text-white">Lembretes</h1>
+          {urgentCount > 0 && <p className="text-xs text-amber-400 mt-0.5">⚠ {urgentCount} urgente(s) este mês</p>}
         </div>
-        <button onClick={() => setModal({})} className="btn-primary flex items-center gap-1.5 text-sm">
-          <Plus size={16}/> Nova
-        </button>
-      </div>
-
-      {/* Filters */}
-      <div className="flex gap-2">
-        {[['pending','Pendentes'],['paid','Pagas'],['all','Todas']].map(([v, l]) => (
-          <button key={v} onClick={() => setFilter(v)}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${filter === v ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'border-gray-700 text-gray-400'}`}>
-            {l}
+        <div className="flex items-center gap-2">
+          <button onClick={() => setViewMode(v => v === 'month' ? 'all' : 'month')}
+            className="btn-ghost p-2" title={viewMode === 'month' ? 'Ver todos os meses' : 'Ver por mês'}>
+            {viewMode === 'month' ? <LayoutList size={16}/> : <Calendar size={16}/>}
           </button>
-        ))}
+          <button onClick={() => setModal({})} className="btn-primary flex items-center gap-1.5 text-sm">
+            <Plus size={16}/> Manual
+          </button>
+        </div>
       </div>
 
-      {loading ? <div className="space-y-2">{[...Array(4)].map((_, i) => <div key={i} className="card h-20 animate-pulse bg-gray-800"/>)}</div> : (
-        <div className="space-y-2">
-          {filtered.length === 0 && (
-            <div className="card text-center py-10">
-              <p className="text-gray-500 text-sm">Nenhuma conta {filter === 'pending' ? 'pendente' : filter === 'paid' ? 'paga' : ''} encontrada.</p>
+      {viewMode === 'month' ? (
+        <>
+          {/* Navegação mensal */}
+          <div className="card">
+            <div className="flex items-center justify-between mb-3">
+              <button onClick={() => setCurrentDate(d => subMonths(d, 1))} className="p-1.5 text-gray-400 hover:text-white"><ChevronLeft size={18}/></button>
+              <p className="font-semibold text-white capitalize">{monthLabel}</p>
+              <button onClick={() => setCurrentDate(d => addMonths(d, 1))} className="p-1.5 text-gray-400 hover:text-white"><ChevronRight size={18}/></button>
+            </div>
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div>
+                <p className="text-xs text-gray-500">Total</p>
+                <p className="text-sm font-bold text-white">R$ {monthTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">Pago</p>
+                <p className="text-sm font-bold text-emerald-400">R$ {monthPaid.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">Pendente</p>
+                <p className="text-sm font-bold text-amber-400">R$ {(monthTotal - monthPaid).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Filtros */}
+          <div className="flex gap-2">
+            {[['all','Todos'],['pending','Pendentes'],['paid','Pagos']].map(([v, l]) => (
+              <button key={v} onClick={() => setFilterPaid(v)}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${filterPaid === v ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'border-gray-700 text-gray-400'}`}>
+                {l}
+              </button>
+            ))}
+          </div>
+
+          {/* Lista do mês */}
+          {loading ? (
+            <div className="space-y-2">{[...Array(5)].map((_, i) => <div key={i} className="card h-16 animate-pulse bg-gray-800"/>)}</div>
+          ) : (
+            <div className="space-y-2">
+              {filteredBills.length === 0 && (
+                <div className="card text-center py-10">
+                  <Bell size={28} className="text-gray-700 mx-auto mb-2"/>
+                  <p className="text-gray-500 text-sm">
+                    {filterPaid === 'pending' ? 'Nenhum lembrete pendente.' : filterPaid === 'paid' ? 'Nenhum pago ainda.' : 'Nenhum lembrete neste mês.'}
+                  </p>
+                  <p className="text-gray-600 text-xs mt-1">Adicione itens em Planejamento para gerar lembretes automáticos.</p>
+                </div>
+              )}
+              {filteredBills.map(bill => (
+                <BillRow key={bill.id} bill={bill} onToggle={togglePaid} onEdit={setModal} onDelete={handleDelete}/>
+              ))}
             </div>
           )}
-          {filtered.map(bill => {
-            const status = getBillStatus(bill)
-            return (
-              <div key={bill.id} className={`card flex items-center gap-3 border animate-in ${status.bg}`}>
-                <button onClick={() => togglePaid(bill)} className={`flex-shrink-0 transition-colors ${bill.is_paid ? 'text-emerald-400' : 'text-gray-600 hover:text-emerald-400'}`}>
-                  {bill.is_paid ? <CheckCircle2 size={22}/> : <Circle size={22}/>}
-                </button>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className={`text-sm font-medium ${bill.is_paid ? 'text-gray-500 line-through' : 'text-white'}`}>{bill.name}</p>
-                    {bill.is_fixed && <Lock size={11} className="text-amber-400 flex-shrink-0"/>}
-                  </div>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <p className={`text-xs font-medium ${status.color}`}>{status.label}</p>
-                    <span className="text-xs text-gray-600">•</span>
-                    <span className="text-xs text-gray-500 capitalize">{bill.recurrence === 'monthly' ? 'Mensal' : bill.recurrence === 'yearly' ? 'Anual' : 'Única'}</span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-1.5 flex-shrink-0">
-                  <p className="text-sm font-bold text-white">R$ {Number(bill.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-                  <button onClick={() => setModal(bill)} className="text-gray-600 hover:text-gray-400 p-1"><Edit2 size={14}/></button>
-                  <button onClick={() => handleDelete(bill)} className="text-gray-600 hover:text-red-400 p-1"><Trash2 size={14}/></button>
-                </div>
-              </div>
-            )
-          })}
+        </>
+      ) : (
+        /* Visão acordeão — todos os meses */
+        <div className="space-y-3">
+          {billsByMonth.length === 0 && (
+            <div className="card text-center py-10">
+              <p className="text-gray-500 text-sm">Nenhum lembrete cadastrado.</p>
+            </div>
+          )}
+          {billsByMonth.map(([month, mbills]) => (
+            <MonthAccordion
+              key={month}
+              monthRef={month}
+              bills={mbills}
+              onToggle={togglePaid}
+              onEdit={setModal}
+              onDelete={handleDelete}
+              defaultOpen={month === format(new Date(), 'yyyy-MM')}
+            />
+          ))}
         </div>
       )}
 
-      {modal !== null && <BillModal initial={modal} userId={user?.id} onClose={() => setModal(null)} onSaved={refetch}/>}
+      {modal !== null && <ManualModal initial={modal} userId={user?.id} onClose={() => setModal(null)} onSaved={refetch}/>}
     </div>
   )
 }

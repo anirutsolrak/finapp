@@ -1,8 +1,9 @@
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { supabase } from './supabase'
 
+const CLAUDE_MODEL = 'claude-sonnet-4-20250514'
 const EDGE_FN_URL = 'https://vzbswcoogdarlzqstumy.supabase.co/functions/v1/claude-proxy'
+const SUPABASE_ANON_KEY = 'sb_publishable_ynzrEH34nzVwEMp0m_7BZg_8ZZDB9yg'
 
 export function buildSystemPrompt(context, userName) {
   const { monthRef, budgetItems, transactions, goals, upcomingBills } = context
@@ -19,10 +20,10 @@ Hoje é ${format(new Date(), "d 'de' MMMM 'de' yyyy", { locale: ptBR })}, mês d
 - Saldo disponível: R$${(totalBudget - totalSpent).toFixed(2)}
 
 ## ITENS FIXOS (NUNCA PODEM SER ALTERADOS OU REMOVIDOS):
-${fixedItems}
+${fixedItems || 'Nenhum'}
 
-## ITENS DO ORÇAMENTO:
-${(budgetItems || []).map(i => `- ${i.name} (${i.categories?.name}): R$${i.planned_amount} ${i.is_fixed ? '[FIXO]' : ''}`).join('\n')}
+## ITENS DO PLANEJAMENTO:
+${(budgetItems || []).map(i => `- ${i.name} (${i.categories?.name || 'sem categoria'}): R$${i.planned_amount} ${i.is_fixed ? '[FIXO]' : ''}`).join('\n') || 'Nenhum'}
 
 ## TRANSAÇÕES DO MÊS:
 ${(transactions || []).slice(0, 20).map(t => `- ${t.date} | ${t.description}: R$${t.amount} (${t.type})`).join('\n') || 'Nenhuma transação ainda.'}
@@ -30,19 +31,19 @@ ${(transactions || []).slice(0, 20).map(t => `- ${t.date} | ${t.description}: R$
 ## METAS ATIVAS:
 ${(goals || []).map(g => `- ${g.name}: R$${g.current_amount}/${g.target_amount} (contribuição mensal: R$${g.monthly_contribution})`).join('\n') || 'Nenhuma meta.'}
 
-## CONTAS A VENCER (próximos 10 dias):
-${(upcomingBills || []).map(b => `- ${b.name}: R$${b.amount} vence em ${b.due_date} ${b.is_fixed ? '[FIXO]' : ''}`).join('\n') || 'Nenhuma conta a vencer.'}
+## LEMBRETES A VENCER (próximos 10 dias):
+${(upcomingBills || []).map(b => `- ${b.name}: R$${b.amount} vence em ${b.due_date} ${b.is_fixed ? '[FIXO]' : ''}`).join('\n') || 'Nenhum.'}
 
 ## REGRAS DE OURO:
 1. NUNCA sugira alterar, remover ou reduzir valores de itens marcados como [FIXO].
 2. Ao sugerir redistribuição de orçamento para uma meta, use apenas o saldo disponível de itens variáveis.
 3. Quando o usuário relatar um gasto ou intenção de compra, faça perguntas de clarificação se necessário (valor, categoria, prazo).
-4. Sempre que sugerir lançar dados, retorne um JSON estruturado NO FINAL da resposta, entre as tags <ACTION> e </ACTION>. Use SEMPRE este formato:
+4. Sempre que sugerir lançar dados, retorne um JSON estruturado NO FINAL da resposta, entre as tags <ACTION> e </ACTION>.
 
 Para UM item:
 {
   "type": "add_transaction" | "add_goal" | "add_bill" | "update_budget",
-  "data": { "description": "...", "amount": 100, "type": "expense", ... },
+  "data": { "description": "...", "amount": 100, "type": "expense" },
   "description": "Resumo legível da ação"
 }
 
@@ -53,22 +54,17 @@ Para MÚLTIPLOS itens do mesmo tipo, use "items" como array:
   "description": "Resumo legível"
 }
 
-NUNCA misture tipos diferentes em uma única ação. Prefira ações simples e únicas sempre que possível.
 5. Fale sempre em português brasileiro, de forma amigável e direta.
-6. Dê insights semanais sobre distribuição de gastos quando relevante.`
+6. Dê insights sobre distribuição de gastos e sugestões para atingir metas quando relevante.`
 }
 
 export async function sendToClaudeAPI(messages, systemPrompt) {
-  // Pega o token JWT do usuário logado para autenticar na Edge Function
-  const { data: { session } } = await supabase.auth.getSession()
-  const token = session?.access_token
-  if (!token) throw new Error('Usuário não autenticado.')
-
   const resp = await fetch(EDGE_FN_URL, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
+      'apikey': SUPABASE_ANON_KEY,
+      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
     },
     body: JSON.stringify({ messages, system: systemPrompt }),
   })
@@ -76,8 +72,9 @@ export async function sendToClaudeAPI(messages, systemPrompt) {
   if (!resp.ok) {
     const err = await resp.json().catch(() => ({}))
     const msg = err.error || `Erro ${resp.status}`
-    if (msg.includes('ANTHROPIC_API_KEY not configured')) {
-      throw new Error('Chave da API não configurada no Supabase. Siga as instruções abaixo.')
+    if (resp.status === 401) throw new Error('Erro de autenticação na Edge Function.')
+    if (resp.status === 500 && msg.includes('ANTHROPIC_API_KEY')) {
+      throw new Error('Chave da API Anthropic não configurada nos Secrets do Supabase.')
     }
     throw new Error(msg)
   }
