@@ -4,7 +4,12 @@
 
 @layer base {
   * { box-sizing: border-box; }
-  body { @apply bg-gray-950 text-gray-100 font-sans antialiased; }
+  body {
+    @apply bg-gray-950 text-gray-100 font-sans antialiased;
+    padding-top: env(safe-area-inset-top);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
   ::-webkit-scrollbar { width: 4px; }
   ::-webkit-scrollbar-track { @apply bg-gray-900; }
   ::-webkit-scrollbar-thumb { @apply bg-gray-600 rounded-full; }

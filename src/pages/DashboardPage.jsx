@@ -1,6 +1,6 @@
 import { format, differenceInDays, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { TrendingUp, TrendingDown, AlertCircle, Target, PiggyBank, ArrowRight, Sparkles } from 'lucide-react'
+import { TrendingUp, TrendingDown, AlertCircle, Target, PiggyBank, ArrowRight, Sparkles, Settings } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useDashboard, useMonthRef } from '../hooks/useData'
 import { useAuth } from '../contexts/AuthContext'
@@ -82,9 +82,14 @@ export default function DashboardPage() {
           <h1 className="text-2xl font-bold text-white">Olá, {firstName} 👋</h1>
           <p className="text-gray-400 text-sm capitalize">{monthLabel}</p>
         </div>
-        <button onClick={() => navigate('/chat')} className="btn-primary flex items-center gap-2 text-sm">
-          <Sparkles size={15}/> IA
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={() => navigate('/chat')} className="btn-primary flex items-center gap-2 text-sm">
+            <Sparkles size={15}/> IA
+          </button>
+          <button onClick={() => navigate('/settings')} className="md:hidden w-9 h-9 rounded-xl bg-gray-800 flex items-center justify-center text-gray-400 hover:text-white transition-colors" title="Configurações">
+            <Settings size={18}/>
+          </button>
+        </div>
       </div>
 
       {/* Alerts */}
