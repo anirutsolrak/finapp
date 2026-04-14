@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import Layout from './components/layout/Layout'
 import InstallPrompt from './components/InstallPrompt'
+import UpdatePrompt from './components/UpdatePrompt'
 import LoginPage from './pages/LoginPage'
 import DashboardPage from './pages/DashboardPage'
 import TransactionsPage from './pages/TransactionsPage'
@@ -39,6 +40,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <InstallPrompt />
+      <UpdatePrompt />
       <AuthProvider>
         <AppRoutes />
       </AuthProvider>

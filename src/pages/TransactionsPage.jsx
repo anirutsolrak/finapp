@@ -20,7 +20,13 @@ function TxModal({ onClose, onSaved, initial, categories, budgetItems, userId })
   async function save() {
     if (!form.description || !form.amount) return setError('Preencha descrição e valor.')
     setSaving(true)
-    const payload = { ...form, amount: parseFloat(form.amount), user_id: userId }
+    const payload = {
+      ...form,
+      amount: parseFloat(form.amount),
+      user_id: userId,
+      category_id: form.category_id || null,
+      budget_item_id: form.budget_item_id || null
+    }
     const { error: err } = form.id ? await updateTransaction(form.id, payload) : await addTransaction(payload)
     if (err) setError(err.message)
     else { onSaved(); onClose() }

@@ -4,6 +4,7 @@ import { Send, Plus, Loader2, Bot, User, CheckCircle, Edit2, Trash2, Sparkles } 
 import { useAuth } from '../contexts/AuthContext'
 import { sendToClaudeAPI, buildSystemPrompt, extractAction, cleanText } from '../lib/claude'
 import { getAIContext, saveChatMessage, getChatMessages, clearChat, addTransaction, upsertBill, upsertGoal, upsertBudgetItem } from '../lib/db'
+import { computeGoalPlan, AGGRESSIVENESS_PCT } from '../lib/goalPlanner'
 
 function TypingDot() {
   return (
@@ -218,6 +219,13 @@ export default function ChatPage() {
       const { type, data } = action
       const items = data?.items ? data.items : [data]
 
+      // Saldo livre atual (para calcular metas com aggressiveness)
+      let freeBalance = 0
+      if (type === 'add_goal') {
+        const ctx = await getAIContext()
+        freeBalance = ctx?.freeBalance || 0
+      }
+
       // Checa erro do Supabase e lança se necessário
       function check({ error }) {
         if (error) throw new Error(error.message || JSON.stringify(error))
@@ -260,15 +268,37 @@ export default function ChatPage() {
       }
 
       function toGoal(item) {
-        return {
+        const base = {
           user_id: user.id,
           name: item.name || item.description || item.title || 'Sem nome',
           target_amount: parseFloat(item.target_amount || item.amount || 0),
           current_amount: parseFloat(item.current_amount || 0),
-          monthly_contribution: parseFloat(item.monthly_contribution || 0),
-          target_date: item.target_date || item.deadline || null,
           is_fixed: item.is_fixed ?? false,
           priority: item.priority || 1,
+        }
+        const tag = item.aggressiveness
+        if (tag && AGGRESSIVENESS_PCT[tag] && !item.monthly_contribution) {
+          const plan = computeGoalPlan({
+            targetAmount: base.target_amount,
+            currentAmount: base.current_amount,
+            aggressiveness: tag,
+            freeBalance,
+          })
+          return {
+            ...base,
+            aggressiveness: tag,
+            monthly_contribution: plan.monthly_contribution,
+            target_date: plan.target_date,
+            total_months: plan.total_months,
+            months_completed: 0,
+            ai_computed_at: new Date().toISOString(),
+          }
+        }
+        return {
+          ...base,
+          aggressiveness: tag && AGGRESSIVENESS_PCT[tag] ? tag : null,
+          monthly_contribution: parseFloat(item.monthly_contribution || 0),
+          target_date: item.target_date || item.deadline || null,
         }
       }
 

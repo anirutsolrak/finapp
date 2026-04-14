@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
 import { format, startOfMonth, endOfMonth } from 'date-fns'
+import { computeFreeBalance } from './goalPlanner'
 
 // ─── CATEGORIES ─────────────────────────────────────────────────────────────
 export const getCategories = () =>
@@ -30,14 +31,19 @@ export const getTransactions = (monthRef) => {
   return q
 }
 
+const withMonthRef = (data) => {
+  if (!data.month_ref && data.date) return { ...data, month_ref: String(data.date).slice(0, 7) }
+  return data
+}
+
 export const addTransaction = (tx) => {
   const { categories, budget_items, ...data } = tx
-  return supabase.from('transactions').insert(data).select().single()
+  return supabase.from('transactions').insert(withMonthRef(data)).select().single()
 }
 
 export const updateTransaction = (id, tx) => {
   const { categories, budget_items, ...data } = tx
-  return supabase.from('transactions').update(data).eq('id', id).select().single()
+  return supabase.from('transactions').update(withMonthRef(data)).eq('id', id).select().single()
 }
 
 export const deleteTransaction = (id) =>
@@ -45,8 +51,8 @@ export const deleteTransaction = (id) =>
 
 // ─── BILLS ──────────────────────────────────────────────────────────────────
 export const getBills = (monthRef) => {
-  const q = supabase.from('bills').select('*').order('due_date')
-  if (monthRef) q.eq('month_ref', monthRef)
+  let q = supabase.from('bills').select('*').order('due_date')
+  if (monthRef) q = q.eq('month_ref', monthRef)
   return q
 }
 
@@ -121,5 +127,6 @@ export const getAIContext = async () => {
     getGoals(),
     getUpcomingBills(10),
   ])
-  return { monthRef, budgetItems: items, transactions: txs, goals, upcomingBills: bills }
+  const freeBalance = computeFreeBalance(items || [])
+  return { monthRef, budgetItems: items, transactions: txs, goals, upcomingBills: bills, freeBalance }
 }
