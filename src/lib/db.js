@@ -9,8 +9,13 @@ export const getCategories = () =>
 export const getBudgetItems = () =>
   supabase.from('budget_items').select('*, categories(*)').eq('active', true).order('created_at')
 
-export const upsertBudgetItem = (item) =>
-  supabase.from('budget_items').upsert(item).select().single()
+export const upsertBudgetItem = (item) => {
+  const { categories, ...data } = item
+  if (data.id) {
+    return supabase.from('budget_items').update(data).eq('id', data.id).select().single()
+  }
+  return supabase.from('budget_items').insert(data).select().single()
+}
 
 export const deleteBudgetItem = (id) =>
   supabase.from('budget_items').update({ active: false }).eq('id', id)
@@ -25,11 +30,15 @@ export const getTransactions = (monthRef) => {
   return q
 }
 
-export const addTransaction = (tx) =>
-  supabase.from('transactions').insert(tx).select().single()
+export const addTransaction = (tx) => {
+  const { categories, budget_items, ...data } = tx
+  return supabase.from('transactions').insert(data).select().single()
+}
 
-export const updateTransaction = (id, data) =>
-  supabase.from('transactions').update(data).eq('id', id).select().single()
+export const updateTransaction = (id, tx) => {
+  const { categories, budget_items, ...data } = tx
+  return supabase.from('transactions').update(data).eq('id', id).select().single()
+}
 
 export const deleteTransaction = (id) =>
   supabase.from('transactions').delete().eq('id', id)
@@ -50,8 +59,12 @@ export const getUpcomingBills = (days = 7) => {
   return supabase.from('bills').select('*').gte('due_date', today).lte('due_date', future).eq('is_paid', false).order('due_date')
 }
 
-export const upsertBill = (bill) =>
-  supabase.from('bills').upsert(bill).select().single()
+export const upsertBill = (bill) => {
+  if (bill.id) {
+    return supabase.from('bills').update(bill).eq('id', bill.id).select().single()
+  }
+  return supabase.from('bills').insert(bill).select().single()
+}
 
 export const markBillPaid = (id, paid = true) =>
   supabase.from('bills').update({ is_paid: paid }).eq('id', id)
@@ -63,8 +76,12 @@ export const deleteBill = (id) =>
 export const getGoals = () =>
   supabase.from('goals').select('*').order('priority')
 
-export const upsertGoal = (goal) =>
-  supabase.from('goals').upsert(goal).select().single()
+export const upsertGoal = (goal) => {
+  if (goal.id) {
+    return supabase.from('goals').update(goal).eq('id', goal.id).select().single()
+  }
+  return supabase.from('goals').insert(goal).select().single()
+}
 
 export const deleteGoal = (id) =>
   supabase.from('goals').delete().eq('id', id)
