@@ -1,11 +1,42 @@
-import { useState } from 'react'
-import { format, subMonths, addMonths } from 'date-fns'
+import { useState, useMemo } from 'react'
+import { format, subMonths, addMonths, parseISO, startOfWeek, isSameDay, isAfter, isBefore } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { Plus, Trash2, ChevronLeft, ChevronRight, Filter, Edit2 } from 'lucide-react'
-import { useTransactions, useMonthRef, useBudgetItems } from '../hooks/useData'
+import { Plus, Trash2, ChevronLeft, ChevronRight, Filter, Edit2, TrendingUp, TrendingDown, ArrowRightLeft, Sparkles, Activity } from 'lucide-react'
+import { useTransactions, useMonthRef, useBudgetItems, useBudgetCycle } from '../hooks/useData'
 import { addTransaction, deleteTransaction, updateTransaction } from '../lib/db'
 import { useAuth } from '../contexts/AuthContext'
-import { PAYMENT_SOURCE_LABELS, PAYMENT_SOURCE_ORDER } from '../lib/budgetEngine'
+import { PAYMENT_SOURCE_LABELS, PAYMENT_SOURCE_ORDER, computeBucketSnapshot, bucketOf } from '../lib/budgetEngine'
+
+const fmt = (v) => `R$ ${Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+
+function BudgetVsSpent({ label, budget, spent }) {
+  const pct = budget > 0 ? (spent / budget) * 100 : 0
+  const color = pct > 100 ? 'text-red-400' : pct > 90 ? 'text-amber-400' : 'text-emerald-400'
+  return (
+    <div className="flex items-center justify-between text-xs">
+      <span className="text-gray-500">{label}</span>
+      <div className="text-right">
+        <p className={`font-semibold ${color}`}>{fmt(spent)}</p>
+        <p className="text-gray-600 text-[10px]">de {fmt(budget)}</p>
+      </div>
+    </div>
+  )
+}
+
+function StatusDot({ spent, budget, label }) {
+  const pct = budget > 0 ? (spent / budget) * 100 : 0
+  const cfg = pct > 100
+    ? { color: 'bg-red-500', text: 'text-red-400', msg: 'estourou' }
+    : pct > 90
+      ? { color: 'bg-amber-500', text: 'text-amber-400', msg: 'apertado' }
+      : { color: 'bg-emerald-500', text: 'text-emerald-400', msg: 'no ritmo' }
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className={`w-2 h-2 rounded-full ${cfg.color}`}/>
+      <span className={`text-xs ${cfg.text}`}>{label} {cfg.msg}</span>
+    </div>
+  )
+}
 
 const TYPE_LABELS = { income: 'Receita', expense: 'Despesa', investment: 'Investimento', transfer: 'Transferência' }
 const TYPE_COLORS = { income: 'chip-income', expense: 'chip-expense', investment: 'chip-investment', transfer: 'badge bg-blue-500/20 text-blue-400' }
@@ -131,6 +162,7 @@ export default function TransactionsPage() {
   const [monthRef, setMonthRef] = useState(format(new Date(), 'yyyy-MM'))
   const { transactions, loading, refetch } = useTransactions(monthRef)
   const { items: budgetItems, categories } = useBudgetItems()
+  const { cycle } = useBudgetCycle(monthRef)
   const { user } = useAuth()
   const [modal, setModal] = useState(null)
   const [filterType, setFilterType] = useState('all')
@@ -139,13 +171,56 @@ export default function TransactionsPage() {
   const nextMonth = () => setMonthRef(format(addMonths(new Date(monthRef + '-01'), 1), 'yyyy-MM'))
 
   const monthLabel = format(new Date(monthRef + '-02'), "MMMM 'de' yyyy", { locale: ptBR })
+  const isCurrentMonth = monthRef === format(new Date(), 'yyyy-MM')
 
   const filtered = filterType === 'all' ? transactions : transactions.filter(t => t.type === filterType)
 
-  const totals = {
-    income: transactions.filter(t => t.type === 'income').reduce((a, t) => a + Number(t.amount), 0),
-    expense: transactions.filter(t => t.type === 'expense').reduce((a, t) => a + Number(t.amount), 0),
-  }
+  const incomeSnap = useMemo(
+    () => computeBucketSnapshot({ bucket: 'income', cycle, items: budgetItems, transactions }),
+    [cycle, budgetItems, transactions]
+  )
+
+  const metrics = useMemo(() => {
+    const today = new Date()
+    const todayStr = format(today, 'yyyy-MM-dd')
+    const weekStart = startOfWeek(today, { weekStartsOn: 1 })
+
+    const totals = { income: 0, expense: 0, investment: 0, transfer: 0 }
+    let gastoHoje = 0, gastoSemana = 0
+    const transferByCat = {}
+    const investmentByCat = {}
+
+    for (const t of transactions) {
+      const amt = Number(t.amount) || 0
+      totals[t.type] = (totals[t.type] || 0) + amt
+      if (t.type === 'expense' && bucketOf(t.payment_source) === 'income') {
+        const d = parseISO(t.date)
+        if (t.date === todayStr) gastoHoje += amt
+        if (!isBefore(d, weekStart) && !isAfter(d, today)) gastoSemana += amt
+      }
+      if (t.type === 'transfer') {
+        const k = t.categories?.name || 'Sem categoria'
+        transferByCat[k] = (transferByCat[k] || 0) + amt
+      }
+      if (t.type === 'investment') {
+        const k = t.categories?.name || 'Sem categoria'
+        investmentByCat[k] = (investmentByCat[k] || 0) + amt
+      }
+    }
+
+    return {
+      totals,
+      gastoHoje,
+      gastoSemana,
+      orcamentoDia: incomeSnap.mediaDiaria,
+      orcamentoSemana: incomeSnap.mediaDiaria * 7,
+      transferByCat,
+      investmentByCat,
+      entrou: totals.income,
+      saiu: totals.expense,
+      liquido: totals.income - totals.expense,
+    }
+  }, [transactions, incomeSnap])
 
   async function handleDelete(id) {
     if (!confirm('Excluir este lançamento?')) return
@@ -170,21 +245,71 @@ export default function TransactionsPage() {
         <button onClick={nextMonth} className="p-2 hover:text-emerald-400 text-gray-400 transition-colors"><ChevronRight size={18}/></button>
       </div>
 
-      {/* Totals */}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="card">
-          <p className="text-xs text-gray-500 mb-1">Receitas</p>
-          <p className="text-lg font-bold text-emerald-400">R$ {totals.income.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+      {/* Bloco 1 — Orçamento vs Gasto (diário + semanal) */}
+      {isCurrentMonth && cycle && (
+        <div className="card space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-semibold text-white flex items-center gap-2"><Activity size={14} className="text-emerald-400"/> Ritmo de gasto</p>
+            <div className="flex gap-2">
+              <StatusDot label="Hoje" spent={metrics.gastoHoje} budget={metrics.orcamentoDia}/>
+              <StatusDot label="Semana" spent={metrics.gastoSemana} budget={metrics.orcamentoSemana}/>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3 pt-2 border-t border-gray-800">
+            <BudgetVsSpent label="Diário" budget={metrics.orcamentoDia} spent={metrics.gastoHoje}/>
+            <BudgetVsSpent label="Semanal" budget={metrics.orcamentoSemana} spent={metrics.gastoSemana}/>
+          </div>
+          <p className="text-[10px] text-gray-600">Estouro do diário não afeta o semanal. Ao fechar a semana, o orçamento diário dos dias restantes é reajustado automaticamente.</p>
         </div>
-        <div className="card">
-          <p className="text-xs text-gray-500 mb-1">Despesas</p>
-          <p className="text-lg font-bold text-red-400">R$ {totals.expense.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+      )}
+
+      {/* Bloco 2 — Alocação (transferências + investimentos) */}
+      {(metrics.totals.transfer > 0 || metrics.totals.investment > 0) && (
+        <div className="grid grid-cols-2 gap-3">
+          <div className="card">
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-xs text-gray-500">Transferido</p>
+              <ArrowRightLeft size={12} className="text-blue-400"/>
+            </div>
+            <p className="text-lg font-bold text-blue-400">{fmt(metrics.totals.transfer)}</p>
+            {Object.entries(metrics.transferByCat).slice(0, 3).map(([k, v]) => (
+              <p key={k} className="text-[10px] text-gray-500 truncate">→ {k} · {fmt(v)}</p>
+            ))}
+          </div>
+          <div className="card">
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-xs text-gray-500">Investido</p>
+              <Sparkles size={12} className="text-purple-400"/>
+            </div>
+            <p className="text-lg font-bold text-purple-400">{fmt(metrics.totals.investment)}</p>
+            {Object.entries(metrics.investmentByCat).slice(0, 3).map(([k, v]) => (
+              <p key={k} className="text-[10px] text-gray-500 truncate">→ {k} · {fmt(v)}</p>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Bloco 3 — Consolidado */}
+      <div className="card flex items-center justify-between flex-wrap gap-2">
+        <div className="flex items-center gap-1.5">
+          <TrendingUp size={14} className="text-emerald-400"/>
+          <span className="text-xs text-gray-500">Entrou</span>
+          <span className="text-sm font-bold text-emerald-400">{fmt(metrics.entrou)}</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <TrendingDown size={14} className="text-red-400"/>
+          <span className="text-xs text-gray-500">Saiu</span>
+          <span className="text-sm font-bold text-red-400">{fmt(metrics.saiu)}</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs text-gray-500">Líquido</span>
+          <span className={`text-sm font-bold ${metrics.liquido >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{fmt(metrics.liquido)}</span>
         </div>
       </div>
 
       {/* Filter */}
       <div className="flex gap-2 flex-wrap">
-        {['all', 'income', 'expense', 'investment'].map(t => (
+        {['all', 'income', 'expense', 'investment', 'transfer'].map(t => (
           <button key={t} onClick={() => setFilterType(t)}
             className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all border ${filterType === t ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'border-gray-700 text-gray-400'}`}>
             {t === 'all' ? 'Todos' : TYPE_LABELS[t]}
