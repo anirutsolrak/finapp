@@ -44,7 +44,7 @@ const TYPE_COLORS = { income: 'chip-income', expense: 'chip-expense', investment
 const EMPTY = { description: '', amount: '', type: 'expense', date: format(new Date(), 'yyyy-MM-dd'), category_id: '', budget_item_id: '', notes: '', is_paid: true, payment_source: 'fixed_income' }
 
 function TxModal({ onClose, onSaved, initial, categories, budgetItems, userId }) {
-  const [form, setForm] = useState(initial || EMPTY)
+  const [form, setForm] = useState({ ...EMPTY, ...initial })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
