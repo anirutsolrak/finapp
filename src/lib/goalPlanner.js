@@ -18,11 +18,13 @@ export const AGGRESSIVENESS_LABELS = {
 
 export const AGGRESSIVENESS_ORDER = ['very_high', 'high', 'medium', 'low', 'very_low']
 
+// Saldo livre para metas = apenas renda (fixa + variável). Crédito é ignorado.
 export function computeFreeBalance(budgetItems) {
-  const income = (budgetItems || [])
+  const items = (budgetItems || []).filter(i => i.payment_source !== 'credit')
+  const income = items
     .filter(i => i.categories?.type === 'income')
     .reduce((a, i) => a + Number(i.planned_amount || 0), 0)
-  const fixed = (budgetItems || [])
+  const fixed = items
     .filter(i => i.is_fixed && i.categories?.type !== 'income')
     .reduce((a, i) => a + Number(i.planned_amount || 0), 0)
   return Math.max(income - fixed, 0)

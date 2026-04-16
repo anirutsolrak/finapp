@@ -5,11 +5,12 @@ import { Plus, Trash2, ChevronLeft, ChevronRight, Filter, Edit2 } from 'lucide-r
 import { useTransactions, useMonthRef, useBudgetItems } from '../hooks/useData'
 import { addTransaction, deleteTransaction, updateTransaction } from '../lib/db'
 import { useAuth } from '../contexts/AuthContext'
+import { PAYMENT_SOURCE_LABELS, PAYMENT_SOURCE_ORDER } from '../lib/budgetEngine'
 
 const TYPE_LABELS = { income: 'Receita', expense: 'Despesa', investment: 'Investimento', transfer: 'Transferência' }
 const TYPE_COLORS = { income: 'chip-income', expense: 'chip-expense', investment: 'chip-investment', transfer: 'badge bg-blue-500/20 text-blue-400' }
 
-const EMPTY = { description: '', amount: '', type: 'expense', date: format(new Date(), 'yyyy-MM-dd'), category_id: '', budget_item_id: '', notes: '', is_paid: true }
+const EMPTY = { description: '', amount: '', type: 'expense', date: format(new Date(), 'yyyy-MM-dd'), category_id: '', budget_item_id: '', notes: '', is_paid: true, payment_source: 'fixed_income' }
 
 function TxModal({ onClose, onSaved, initial, categories, budgetItems, userId }) {
   const [form, setForm] = useState(initial || EMPTY)
@@ -19,13 +20,14 @@ function TxModal({ onClose, onSaved, initial, categories, budgetItems, userId })
 
   async function save() {
     if (!form.description || !form.amount) return setError('Preencha descrição e valor.')
+    if (!form.payment_source) return setError('Selecione a fonte de pagamento.')
     setSaving(true)
     const payload = {
       ...form,
       amount: parseFloat(form.amount),
       user_id: userId,
       category_id: form.category_id || null,
-      budget_item_id: form.budget_item_id || null
+      budget_item_id: form.budget_item_id || null,
     }
     const { error: err } = form.id ? await updateTransaction(form.id, payload) : await addTransaction(payload)
     if (err) setError(err.message)
@@ -34,6 +36,12 @@ function TxModal({ onClose, onSaved, initial, categories, budgetItems, userId })
   }
 
   const filteredItems = form.category_id ? budgetItems.filter(i => i.category_id === form.category_id) : budgetItems
+
+  // Herda payment_source do budget_item ao selecionar
+  function pickBudgetItem(id) {
+    const item = budgetItems.find(i => i.id === id)
+    setForm(f => ({ ...f, budget_item_id: id, payment_source: item?.payment_source || f.payment_source }))
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/60 p-4" onClick={onClose}>
@@ -79,12 +87,22 @@ function TxModal({ onClose, onSaved, initial, categories, budgetItems, userId })
         {filteredItems.length > 0 && (
           <div>
             <label className="label">Item do orçamento</label>
-            <select className="input" value={form.budget_item_id} onChange={e => set('budget_item_id', e.target.value)}>
+            <select className="input" value={form.budget_item_id} onChange={e => pickBudgetItem(e.target.value)}>
               <option value="">Nenhum</option>
               {filteredItems.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
             </select>
           </div>
         )}
+
+        <div>
+          <label className="label">Fonte de pagamento *</label>
+          <select className="input" value={form.payment_source} onChange={e => set('payment_source', e.target.value)}>
+            {PAYMENT_SOURCE_ORDER.map(s => (
+              <option key={s} value={s}>{PAYMENT_SOURCE_LABELS[s]}</option>
+            ))}
+          </select>
+          {form.budget_item_id && <p className="text-xs text-gray-600 mt-1">Herdado do item do orçamento — pode sobrescrever.</p>}
+        </div>
 
         <div>
           <label className="label">Notas (opcional)</label>

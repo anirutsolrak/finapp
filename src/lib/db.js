@@ -1,6 +1,7 @@
 import { supabase } from './supabase'
 import { format, startOfMonth, endOfMonth } from 'date-fns'
 import { computeFreeBalance } from './goalPlanner'
+import { computeBucketSnapshot, liveHealth } from './budgetEngine'
 
 // ─── CATEGORIES ─────────────────────────────────────────────────────────────
 export const getCategories = () =>
@@ -104,29 +105,117 @@ export const clearChat = (userId) =>
 
 // ─── DASHBOARD SUMMARY ───────────────────────────────────────────────────────
 export const getMonthSummary = async (monthRef) => {
-  const { data: txs } = await supabase.from('transactions').select('amount,type,categories(type)').eq('month_ref', monthRef)
-  if (!txs) return {}
-  const sum = (type) => txs.filter(t => t.categories?.type === type || t.type === type).reduce((a, t) => a + Number(t.amount), 0)
+  const [txRes, billsRes] = await Promise.all([
+    supabase.from('transactions').select('amount,type,budget_item_id,categories(type)').eq('month_ref', monthRef),
+    supabase.from('bills').select('amount,is_paid,budget_item_id').eq('month_ref', monthRef),
+  ])
+  const txs = txRes.data || []
+  const bills = billsRes.data || []
+
+  const income = txs
+    .filter(t => t.categories?.type === 'income' || t.type === 'income')
+    .reduce((a, t) => a + Number(t.amount), 0)
+
+  const paidFromBills = bills
+    .filter(b => b.is_paid)
+    .reduce((a, b) => a + Number(b.amount), 0)
+  const paidFromAdhocTx = txs
+    .filter(t => t.type === 'expense' && !t.budget_item_id)
+    .reduce((a, t) => a + Number(t.amount), 0)
+  const paid = paidFromBills + paidFromAdhocTx
+
+  const pending = bills
+    .filter(b => !b.is_paid)
+    .reduce((a, b) => a + Number(b.amount), 0)
+
+  const projectedBalance = income - paid - pending
+
+  const sumByType = (type) => txs
+    .filter(t => t.categories?.type === type)
+    .reduce((a, t) => a + Number(t.amount), 0)
+
   return {
-    income: sum('income'),
-    essential: sum('essential'),
-    variable: sum('variable'),
-    investment: sum('investment'),
-    installment: sum('installment'),
-    reserve: sum('reserve'),
-    total_expenses: txs.filter(t => t.type === 'expense').reduce((a, t) => a + Number(t.amount), 0),
+    income,
+    paid,
+    pending,
+    projectedBalance,
+    essential: sumByType('essential'),
+    variable: sumByType('variable'),
+    investment: sumByType('investment'),
+    installment: sumByType('installment'),
+    reserve: sumByType('reserve'),
   }
 }
+
+// ─── BUDGET CYCLES ───────────────────────────────────────────────────────────
+export const getBudgetCycle = async (monthRef) => {
+  const { data } = await supabase.from('budget_cycles').select('*').eq('month_ref', monthRef).maybeSingle()
+  return data
+}
+
+export const upsertBudgetCycle = (cycle) => {
+  if (cycle.id) return supabase.from('budget_cycles').update({ ...cycle, updated_at: new Date().toISOString() }).eq('id', cycle.id).select().single()
+  return supabase.from('budget_cycles').insert(cycle).select().single()
+}
+
+// Reseed = recalcula saldo_origem_income e saldo_origem_credit do ciclo baseado nos budget_items ativos
+export const reseedBudgetCycle = async (monthRef, userId) => {
+  const { data: items } = await getBudgetItems()
+  const sumBy = (pred) => (items || []).filter(pred).reduce((a, i) => a + Number(i.planned_amount || 0), 0)
+  const income = sumBy(i => i.categories?.type === 'income' && i.payment_source !== 'credit')
+  const credit = sumBy(i => i.categories?.type === 'income' && i.payment_source === 'credit')
+  const existing = await getBudgetCycle(monthRef)
+  const start = format(startOfMonth(new Date()), 'yyyy-MM-dd')
+  const end = format(endOfMonth(new Date()), 'yyyy-MM-dd')
+  const payload = {
+    ...(existing || {}),
+    user_id: userId,
+    month_ref: monthRef,
+    start_date: existing?.start_date || start,
+    end_date: existing?.end_date || end,
+    saldo_origem_income: income,
+    saldo_origem_credit: credit,
+    reserva_pct: existing?.reserva_pct || 0,
+  }
+  return upsertBudgetCycle(payload)
+}
+
+// ─── WEEKLY CHECKPOINTS ──────────────────────────────────────────────────────
+export const getCheckpoints = (userId, limit = 20) =>
+  supabase.from('weekly_checkpoints').select('*').order('week_start', { ascending: false }).limit(limit)
+
+export const addCheckpoint = (cp) =>
+  supabase.from('weekly_checkpoints').insert(cp).select().single()
+
+export const deleteCheckpoint = (id) =>
+  supabase.from('weekly_checkpoints').delete().eq('id', id)
 
 // ─── CONTEXT SNAPSHOT FOR AI ─────────────────────────────────────────────────
 export const getAIContext = async () => {
   const monthRef = format(new Date(), 'yyyy-MM')
-  const [{ data: items }, { data: txs }, { data: goals }, { data: bills }] = await Promise.all([
+  const [{ data: items }, { data: txs }, { data: goals }, { data: bills }, cycle, { data: checkpoints }] = await Promise.all([
     getBudgetItems(),
     getTransactions(monthRef),
     getGoals(),
     getUpcomingBills(10),
+    getBudgetCycle(monthRef),
+    getCheckpoints(null, 4),
   ])
   const freeBalance = computeFreeBalance(items || [])
-  return { monthRef, budgetItems: items, transactions: txs, goals, upcomingBills: bills, freeBalance }
+  const incomeSnapshot = computeBucketSnapshot({ bucket: 'income', cycle, items: items || [], transactions: txs || [] })
+  const creditSnapshot = computeBucketSnapshot({ bucket: 'credit', cycle, items: items || [], transactions: txs || [] })
+  const health = liveHealth({ cycle, snapshot: incomeSnapshot })
+  return {
+    monthRef,
+    budgetItems: items,
+    transactions: txs,
+    goals,
+    upcomingBills: bills,
+    freeBalance,
+    cycle,
+    incomeSnapshot,
+    creditSnapshot,
+    health,
+    lastCheckpoints: checkpoints || [],
+  }
 }

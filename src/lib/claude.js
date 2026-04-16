@@ -6,7 +6,7 @@ const EDGE_FN_URL = 'https://vzbswcoogdarlzqstumy.supabase.co/functions/v1/claud
 const SUPABASE_ANON_KEY = 'sb_publishable_ynzrEH34nzVwEMp0m_7BZg_8ZZDB9yg'
 
 export function buildSystemPrompt(context, userName) {
-  const { monthRef, budgetItems, transactions, goals, upcomingBills, freeBalance = 0 } = context
+  const { monthRef, budgetItems, transactions, goals, upcomingBills, freeBalance = 0, cycle, incomeSnapshot, creditSnapshot, health, lastCheckpoints = [] } = context
   const totalBudget = (budgetItems || []).reduce((a, i) => a + Number(i.planned_amount), 0)
   const totalSpent = (transactions || []).filter(t => t.type === 'expense').reduce((a, t) => a + Number(t.amount), 0)
   const fixedItems = (budgetItems || []).filter(i => i.is_fixed).map(i => `${i.name}: R$${i.planned_amount}`).join(', ')
@@ -21,6 +21,15 @@ Hoje é ${format(new Date(), "d 'de' MMMM 'de' yyyy", { locale: ptBR })}, mês d
 - Orçamento planejado total: R$${totalBudget.toFixed(2)}
 - Gasto no mês até agora: R$${totalSpent.toFixed(2)}
 - Saldo disponível: R$${(totalBudget - totalSpent).toFixed(2)}
+
+## BUCKETS (RENDA vs CRÉDITO)
+${incomeSnapshot ? `- Renda: origem R$${Number(incomeSnapshot.saldoOrigem).toFixed(2)} | gasto R$${Number(incomeSnapshot.gastoReal).toFixed(2)} | disponível R$${Number(incomeSnapshot.saldoDisponivel).toFixed(2)} | média diária R$${Number(incomeSnapshot.mediaDiaria).toFixed(2)} | meta semanal R$${Number(incomeSnapshot.metaSemanal).toFixed(2)}` : '- Renda: sem ciclo configurado'}
+${creditSnapshot ? `- Crédito: limite R$${Number(creditSnapshot.saldoOrigem).toFixed(2)} | usado R$${Number(creditSnapshot.gastoReal).toFixed(2)} | disponível R$${Number(creditSnapshot.saldoDisponivel).toFixed(2)}` : '- Crédito: sem limite configurado'}
+${health ? `- Saúde atual: ${health.status === 'green' ? '🟢 no ritmo' : health.status === 'yellow' ? '🟡 na meta' : '🔴 estouro'} (gasto R$${Number(health.gastoReal).toFixed(2)} · previsto p/ hoje R$${Number(health.previstoHoje).toFixed(2)})` : ''}
+${cycle ? `- Ciclo: ${cycle.start_date} → ${cycle.end_date} · reserva ${cycle.reserva_pct || 0}%` : ''}
+
+## ÚLTIMOS CHECKPOINTS SEMANAIS
+${lastCheckpoints.slice(0, 4).map(c => `- ${c.week_start}→${c.week_end} [${c.bucket}] previsto R$${Number(c.saldo_previsto).toFixed(2)} · real R$${Number(c.saldo_real).toFixed(2)} · ${c.status}${c.note ? ` · "${c.note}"` : ''}`).join('\n') || '- Nenhum registrado ainda.'}
 
 ## SALDO LIVRE PARA METAS
 - Saldo livre (receita - gastos fixos): R$${Number(freeBalance).toFixed(2)}
@@ -55,13 +64,21 @@ ${(upcomingBills || []).map(b => `- ${b.name}: R$${b.amount} vence em ${b.due_da
 2. Ao sugerir redistribuição de orçamento para uma meta, use apenas o saldo disponível de itens variáveis.
 3. Quando o usuário relatar um gasto ou intenção de compra, faça perguntas de clarificação se necessário (valor, categoria, prazo).
 4. Para metas: sempre use \`aggressiveness\` (very_high | high | medium | low | very_low) em vez de \`monthly_contribution\` manual. Se as metas ativas já consomem >100% do saldo livre, alerte o usuário antes de criar outra.
-5. Sempre que sugerir lançar dados, retorne um JSON estruturado NO FINAL da resposta, entre as tags <ACTION> e </ACTION>.
+5. **payment_source é OBRIGATÓRIO** em add_transaction e add_budget_items (valores: "credit" | "fixed_income" | "variable_income"). Gastos no cartão de crédito = "credit"; salário/aluguel recebido = "fixed_income"; freelas/extras = "variable_income". Se o usuário não deixar claro, pergunte antes de emitir a ACTION.
+6. Sempre que sugerir lançar dados, retorne um JSON estruturado NO FINAL da resposta, entre as tags <ACTION> e </ACTION>.
 
 Para UM item:
 {
-  "type": "add_transaction" | "add_goal" | "add_bill" | "update_budget",
-  "data": { "description": "...", "amount": 100, "type": "expense" },
+  "type": "add_transaction" | "add_goal" | "add_bill" | "update_budget" | "record_checkpoint",
+  "data": { "description": "...", "amount": 100, "type": "expense", "payment_source": "fixed_income" },
   "description": "Resumo legível da ação"
+}
+
+Para fechar a semana (checkpoint):
+{
+  "type": "record_checkpoint",
+  "data": { "bucket": "income" | "credit", "saldo_real": 3200, "week_start": "2026-04-06", "note": "opcional" },
+  "description": "Fecha a semana com saldo real informado"
 }
 
 Exemplo de meta (use aggressiveness, não monthly_contribution):
@@ -78,8 +95,8 @@ Para MÚLTIPLOS itens do mesmo tipo, use "items" como array:
   "description": "Resumo legível"
 }
 
-6. Fale sempre em português brasileiro, de forma amigável e direta.
-7. Dê insights sobre distribuição de gastos e sugestões para atingir metas quando relevante.`
+7. Fale sempre em português brasileiro, de forma amigável e direta.
+8. Dê insights sobre distribuição de gastos e sugestões para atingir metas quando relevante. Use os snapshots de Renda/Crédito e checkpoints recentes para embasar recomendações.`
 }
 
 export async function sendToClaudeAPI(messages, systemPrompt) {

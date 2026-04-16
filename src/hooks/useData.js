@@ -14,13 +14,16 @@ export function useDashboard(monthRef) {
 
   const load = useCallback(async () => {
     setLoading(true)
-    const [summary, { data: bills }, { data: goals }, { data: items }] = await Promise.all([
+    const [summary, { data: bills }, { data: goals }, { data: items }, cycle, { data: txs }, { data: checkpoints }] = await Promise.all([
       db.getMonthSummary(monthRef),
       db.getUpcomingBills(7),
       db.getGoals(),
       db.getBudgetItems(),
+      db.getBudgetCycle(monthRef),
+      db.getTransactions(monthRef),
+      db.getCheckpoints(null, 8),
     ])
-    setData({ summary, bills, goals, budgetItems: items })
+    setData({ summary, bills, goals, budgetItems: items, cycle, transactions: txs, checkpoints: checkpoints || [] })
     setLoading(false)
   }, [monthRef])
 
@@ -31,6 +34,9 @@ export function useDashboard(monthRef) {
     const ch = supabase.channel('dashboard')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions' }, load)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'bills' }, load)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'budget_items' }, load)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'budget_cycles' }, load)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'weekly_checkpoints' }, load)
       .subscribe()
     return () => supabase.removeChannel(ch)
   }, [load])
@@ -114,5 +120,53 @@ export function useBudgetItems() {
   }, [])
 
   useEffect(() => { load() }, [load])
+
+  useEffect(() => {
+    const ch = supabase.channel('budget_items').on('postgres_changes', { event: '*', schema: 'public', table: 'budget_items' }, load).subscribe()
+    return () => supabase.removeChannel(ch)
+  }, [load])
+
   return { items, categories, loading, refetch: load }
+}
+
+export function useBudgetCycle(monthRef) {
+  const [cycle, setCycle] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    const c = await db.getBudgetCycle(monthRef)
+    setCycle(c || null)
+    setLoading(false)
+  }, [monthRef])
+
+  useEffect(() => { load() }, [load])
+
+  useEffect(() => {
+    const ch = supabase.channel('cycles').on('postgres_changes', { event: '*', schema: 'public', table: 'budget_cycles' }, load).subscribe()
+    return () => supabase.removeChannel(ch)
+  }, [load])
+
+  return { cycle, loading, refetch: load }
+}
+
+export function useCheckpoints(limit = 20) {
+  const [checkpoints, setCheckpoints] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    const { data } = await db.getCheckpoints(null, limit)
+    setCheckpoints(data || [])
+    setLoading(false)
+  }, [limit])
+
+  useEffect(() => { load() }, [load])
+
+  useEffect(() => {
+    const ch = supabase.channel('checkpoints').on('postgres_changes', { event: '*', schema: 'public', table: 'weekly_checkpoints' }, load).subscribe()
+    return () => supabase.removeChannel(ch)
+  }, [load])
+
+  return { checkpoints, loading, refetch: load }
 }
