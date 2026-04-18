@@ -4,13 +4,18 @@ export const PAYMENT_SOURCE_LABELS = {
   credit: 'Crédito',
   fixed_income: 'Renda Fixa',
   variable_income: 'Renda Variável',
+  reserve: 'Reserva',
 }
-export const PAYMENT_SOURCE_ORDER = ['fixed_income', 'variable_income', 'credit']
+export const PAYMENT_SOURCE_ORDER = ['fixed_income', 'variable_income', 'credit', 'reserve']
+// Fontes válidas para itens do orçamento (a reserva é só para despesas não planejadas)
+export const BUDGET_ITEM_PAYMENT_SOURCES = ['fixed_income', 'variable_income', 'credit']
 
-export const BUCKET_LABELS = { income: 'Renda', credit: 'Crédito' }
+export const BUCKET_LABELS = { income: 'Renda', credit: 'Crédito', reserve: 'Reserva' }
 
 export function bucketOf(source) {
-  return source === 'credit' ? 'credit' : 'income'
+  if (source === 'credit') return 'credit'
+  if (source === 'reserve') return 'reserve'
+  return 'income'
 }
 
 function toDate(d) {
@@ -90,6 +95,21 @@ export function liveHealth({ cycle, snapshot, today = new Date() }) {
   const delta = gastoEsperado - gastoReal
   const status = healthStatus(gastoEsperado, gastoReal) // se real maior que esperado => red
   return { status, delta, previstoHoje: gastoEsperado, gastoReal }
+}
+
+// Snapshot da reserva: saldo carregado do ciclo anterior + aporte deste ciclo − usado neste ciclo.
+// Nunca retorna disponivel < 0 (validamos no lançamento para impedir).
+export function computeReservaSnapshot({ cycle, transactions = [] }) {
+  if (!cycle) return { acumulada: 0, aporte: 0, usado: 0, disponivel: 0, total: 0 }
+  const acumulada = Number(cycle.reserva_acumulada) || 0
+  const saldoOrigemIncome = Number(cycle.saldo_origem_income) || 0
+  const aporte = saldoOrigemIncome * (Number(cycle.reserva_pct) || 0) / 100
+  const usado = transactions
+    .filter(t => t.type === 'expense' && t.payment_source === 'reserve')
+    .reduce((a, t) => a + Number(t.amount || 0), 0)
+  const total = acumulada + aporte
+  const disponivel = Math.max(total - usado, 0)
+  return { acumulada, aporte, usado, disponivel, total }
 }
 
 export function isoWeekBounds(date = new Date()) {

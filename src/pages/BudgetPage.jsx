@@ -6,9 +6,10 @@ import { upsertBudgetItem, deleteBudgetItem, upsertBudgetCycle, reseedBudgetCycl
 import { useAuth } from '../contexts/AuthContext'
 import {
   PAYMENT_SOURCE_LABELS,
-  PAYMENT_SOURCE_ORDER,
+  BUDGET_ITEM_PAYMENT_SOURCES,
   bucketOf,
   computeBucketSnapshot,
+  computeReservaSnapshot,
 } from '../lib/budgetEngine'
 
 const TYPE_LABELS = { income: 'Receita', investment: 'Investimento', essential: 'Essencial', variable: 'Variável', installment: 'Parcela/Empréstimo', reserve: 'Reserva' }
@@ -60,11 +61,11 @@ function ItemModal({ initial, categories, defaultBucket, onClose, onSaved }) {
         <div>
           <label className="label">Fonte de pagamento *</label>
           <select className="input" value={form.payment_source} onChange={e => set('payment_source', e.target.value)}>
-            {PAYMENT_SOURCE_ORDER.map(s => (
+            {BUDGET_ITEM_PAYMENT_SOURCES.map(s => (
               <option key={s} value={s}>{PAYMENT_SOURCE_LABELS[s]}</option>
             ))}
           </select>
-          <p className="text-xs text-gray-600 mt-1">Define se este item entra no bucket Renda ou Crédito.</p>
+          <p className="text-xs text-gray-600 mt-1">Define se este item entra no bucket Renda ou Crédito. Reserva é só para imprevistos (lançamentos avulsos).</p>
         </div>
 
         <div>
@@ -188,7 +189,7 @@ function CycleModal({ cycle, userId, monthRef, onClose, onSaved }) {
   )
 }
 
-function SnapshotCard({ snapshot, bucket }) {
+function SnapshotCard({ snapshot, bucket, reservaSnapshot }) {
   const isCredit = bucket === 'credit'
   const pct = snapshot.saldoOrigem > 0 ? (snapshot.gastoReal / snapshot.saldoOrigem) * 100 : 0
   return (
@@ -208,12 +209,18 @@ function SnapshotCard({ snapshot, bucket }) {
           <div><p className="text-gray-500">% comprometido</p><p className="font-semibold text-white">{pct.toFixed(0)}%</p></div>
         ) : (
           <>
-            <div><p className="text-gray-500">Reserva</p><p className="font-semibold text-gray-300">{fmt(snapshot.reserva)}</p></div>
             <div><p className="text-gray-500">Média diária</p><p className="font-semibold text-white">{fmt(snapshot.mediaDiaria)}</p></div>
             <div><p className="text-gray-500">Meta semanal</p><p className="font-semibold text-white">{fmt(snapshot.metaSemanal)}</p></div>
           </>
         )}
       </div>
+      {!isCredit && reservaSnapshot && (
+        <div className="mt-2 pt-2 border-t border-gray-800 grid grid-cols-3 gap-2 text-[11px]">
+          <div><p className="text-gray-500">Reserva disp.</p><p className={`font-semibold ${reservaSnapshot.disponivel > 0 ? 'text-cyan-400' : 'text-gray-400'}`}>{fmt(reservaSnapshot.disponivel)}</p></div>
+          <div><p className="text-gray-500">Usado ciclo</p><p className="font-semibold text-red-400">{fmt(reservaSnapshot.usado)}</p></div>
+          <div><p className="text-gray-500">Acumulada</p><p className="font-semibold text-gray-300">{fmt(reservaSnapshot.acumulada)}</p></div>
+        </div>
+      )}
     </div>
   )
 }
@@ -247,6 +254,7 @@ export default function BudgetPage() {
 
   const incomeSnapshot = useMemo(() => computeBucketSnapshot({ bucket: 'income', cycle, items, transactions }), [cycle, items, transactions])
   const creditSnapshot = useMemo(() => computeBucketSnapshot({ bucket: 'credit', cycle, items, transactions }), [cycle, items, transactions])
+  const reservaSnapshot = useMemo(() => computeReservaSnapshot({ cycle, transactions }), [cycle, transactions])
 
   const bucketItems = useMemo(() => items.filter(i => bucketOf(i.payment_source) === tab), [items, tab])
   const incomeItems = bucketItems.filter(i => i.categories?.type === 'income')
@@ -312,7 +320,7 @@ export default function BudgetPage() {
         ))}
       </div>
 
-      {tab !== 'history' && <SnapshotCard snapshot={activeSnapshot} bucket={tab}/>}
+      {tab !== 'history' && <SnapshotCard snapshot={activeSnapshot} bucket={tab} reservaSnapshot={tab === 'income' ? reservaSnapshot : null}/>}
 
       {tab === 'history' && (
         <div className="space-y-2">

@@ -19,7 +19,8 @@ function getStatus(bill) {
 
 function BillRow({ bill, onToggle, onEdit, onDelete }) {
   const st = getStatus(bill)
-  const fromPlan = !!bill.budget_item_id
+  // Só exibe o link com Planejamento se o item ainda está ativo. Órfão = vínculo quebrado.
+  const fromPlan = !!bill.budget_item_id && bill.budget_items?.active === true
   return (
     <div className={`flex items-center gap-3 p-3 rounded-xl border animate-in ${st.bg}`}>
       <button onClick={() => onToggle(bill)} className={`flex-shrink-0 transition-colors ${bill.is_paid ? 'text-emerald-400' : 'text-gray-600 hover:text-emerald-400'}`}>
@@ -174,8 +175,9 @@ export default function BillsPage() {
   }
 
   async function handleDelete(bill) {
-    if (bill.budget_item_id) {
-      alert('Este lembrete é gerado pelo Planejamento. Para removê-lo, exclua o item lá.')
+    const isLinked = bill.budget_item_id && bill.budget_items?.active === true
+    if (isLinked) {
+      alert(`"${bill.name}" está vinculado a um item ativo no Planejamento. Exclua o item lá — este registro (e os futuros) será removido junto automaticamente.`)
       return
     }
     if (!confirm(`Excluir "${bill.name}"?`)) return
@@ -190,7 +192,7 @@ export default function BillsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-white">Lembretes</h1>
+          <h1 className="text-xl font-bold text-white">Agenda de pagamentos</h1>
           {urgentCount > 0 && <p className="text-xs text-amber-400 mt-0.5">⚠ {urgentCount} urgente(s) este mês</p>}
         </div>
         <div className="flex items-center gap-2">

@@ -5,7 +5,7 @@ import { Plus, Trash2, ChevronLeft, ChevronRight, Filter, Edit2, TrendingUp, Tre
 import { useTransactions, useMonthRef, useBudgetItems, useBudgetCycle } from '../hooks/useData'
 import { addTransaction, deleteTransaction, updateTransaction } from '../lib/db'
 import { useAuth } from '../contexts/AuthContext'
-import { PAYMENT_SOURCE_LABELS, PAYMENT_SOURCE_ORDER, computeBucketSnapshot, bucketOf } from '../lib/budgetEngine'
+import { PAYMENT_SOURCE_LABELS, PAYMENT_SOURCE_ORDER, computeBucketSnapshot, computeReservaSnapshot, bucketOf } from '../lib/budgetEngine'
 
 const fmt = (v) => `R$ ${Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
 
@@ -41,37 +41,39 @@ function StatusDot({ spent, budget, label }) {
 const TYPE_LABELS = { income: 'Receita', expense: 'Despesa', investment: 'Investimento', transfer: 'Transferência' }
 const TYPE_COLORS = { income: 'chip-income', expense: 'chip-expense', investment: 'chip-investment', transfer: 'badge bg-blue-500/20 text-blue-400' }
 
-const EMPTY = { description: '', amount: '', type: 'expense', date: format(new Date(), 'yyyy-MM-dd'), category_id: '', budget_item_id: '', notes: '', is_paid: true, payment_source: 'fixed_income' }
+const EMPTY = { description: '', amount: '', type: 'expense', date: format(new Date(), 'yyyy-MM-dd'), category_id: '', notes: '', is_paid: true, payment_source: 'fixed_income' }
 
-function TxModal({ onClose, onSaved, initial, categories, budgetItems, userId }) {
+function TxModal({ onClose, onSaved, initial, categories, userId, reservaSnapshot }) {
   const [form, setForm] = useState({ ...EMPTY, ...initial })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
+  // Saldo de reserva disponível pro lançamento (devolve o valor antigo se estamos editando uma reserva)
+  const reservaDisponivelPraLancamento = (reservaSnapshot?.disponivel || 0)
+    + (initial?.payment_source === 'reserve' ? Number(initial?.amount || 0) : 0)
+
   async function save() {
     if (!form.description || !form.amount) return setError('Preencha descrição e valor.')
     if (!form.payment_source) return setError('Selecione a fonte de pagamento.')
+    if (form.payment_source === 'reserve' && form.type === 'expense') {
+      const novo = parseFloat(form.amount)
+      if (novo > reservaDisponivelPraLancamento) {
+        return setError(`Reserva insuficiente (disponível R$ ${reservaDisponivelPraLancamento.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}).`)
+      }
+    }
     setSaving(true)
     const payload = {
       ...form,
       amount: parseFloat(form.amount),
       user_id: userId,
       category_id: form.category_id || null,
-      budget_item_id: form.budget_item_id || null,
+      budget_item_id: null,
     }
     const { error: err } = form.id ? await updateTransaction(form.id, payload) : await addTransaction(payload)
     if (err) setError(err.message)
     else { onSaved(); onClose() }
     setSaving(false)
-  }
-
-  const filteredItems = form.category_id ? budgetItems.filter(i => i.category_id === form.category_id) : budgetItems
-
-  // Herda payment_source do budget_item ao selecionar
-  function pickBudgetItem(id) {
-    const item = budgetItems.find(i => i.id === id)
-    setForm(f => ({ ...f, budget_item_id: id, payment_source: item?.payment_source || f.payment_source }))
   }
 
   return (
@@ -109,21 +111,11 @@ function TxModal({ onClose, onSaved, initial, categories, budgetItems, userId })
 
         <div>
           <label className="label">Categoria</label>
-          <select className="input" value={form.category_id} onChange={e => { set('category_id', e.target.value); set('budget_item_id', '') }}>
+          <select className="input" value={form.category_id} onChange={e => set('category_id', e.target.value)}>
             <option value="">Selecionar...</option>
             {categories.map(c => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
           </select>
         </div>
-
-        {filteredItems.length > 0 && (
-          <div>
-            <label className="label">Item do orçamento</label>
-            <select className="input" value={form.budget_item_id} onChange={e => pickBudgetItem(e.target.value)}>
-              <option value="">Nenhum</option>
-              {filteredItems.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
-            </select>
-          </div>
-        )}
 
         <div>
           <label className="label">Fonte de pagamento *</label>
@@ -132,7 +124,11 @@ function TxModal({ onClose, onSaved, initial, categories, budgetItems, userId })
               <option key={s} value={s}>{PAYMENT_SOURCE_LABELS[s]}</option>
             ))}
           </select>
-          {form.budget_item_id && <p className="text-xs text-gray-600 mt-1">Herdado do item do orçamento — pode sobrescrever.</p>}
+          {form.payment_source === 'reserve' && form.type === 'expense' && (
+            <p className="text-xs text-cyan-400 mt-1">
+              Reserva disponível: R$ {reservaDisponivelPraLancamento.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} — não entra na média diária.
+            </p>
+          )}
         </div>
 
         <div>
@@ -178,6 +174,10 @@ export default function TransactionsPage() {
   const incomeSnap = useMemo(
     () => computeBucketSnapshot({ bucket: 'income', cycle, items: budgetItems, transactions }),
     [cycle, budgetItems, transactions]
+  )
+  const reservaSnap = useMemo(
+    () => computeReservaSnapshot({ cycle, transactions }),
+    [cycle, transactions]
   )
 
   const metrics = useMemo(() => {
@@ -353,8 +353,8 @@ export default function TransactionsPage() {
         <TxModal
           initial={modal}
           categories={categories}
-          budgetItems={budgetItems}
           userId={user?.id}
+          reservaSnapshot={reservaSnap}
           onClose={() => setModal(null)}
           onSaved={refetch}
         />

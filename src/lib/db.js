@@ -1,7 +1,7 @@
 import { supabase } from './supabase'
-import { format, startOfMonth, endOfMonth } from 'date-fns'
+import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns'
 import { computeFreeBalance } from './goalPlanner'
-import { computeBucketSnapshot, liveHealth } from './budgetEngine'
+import { computeBucketSnapshot, computeReservaSnapshot, liveHealth } from './budgetEngine'
 
 // ─── CATEGORIES ─────────────────────────────────────────────────────────────
 export const getCategories = () =>
@@ -19,8 +19,11 @@ export const upsertBudgetItem = (item) => {
   return supabase.from('budget_items').insert(data).select().single()
 }
 
-export const deleteBudgetItem = (id) =>
-  supabase.from('budget_items').update({ active: false }).eq('id', id)
+export const deleteBudgetItem = async (id) => {
+  // Cascade: apaga lembretes (bills) que espelham este item — não faz sentido manter o aviso sem o planejamento.
+  await supabase.from('bills').delete().eq('budget_item_id', id)
+  return supabase.from('budget_items').update({ active: false }).eq('id', id)
+}
 
 // ─── TRANSACTIONS ────────────────────────────────────────────────────────────
 export const getTransactions = (monthRef) => {
@@ -51,26 +54,28 @@ export const deleteTransaction = (id) =>
   supabase.from('transactions').delete().eq('id', id)
 
 // ─── BILLS ──────────────────────────────────────────────────────────────────
+// budget_items(active) permite detectar vínculos órfãos (item deletado no Planejamento)
 export const getBills = (monthRef) => {
-  let q = supabase.from('bills').select('*').order('due_date')
+  let q = supabase.from('bills').select('*, budget_items(active)').order('due_date')
   if (monthRef) q = q.eq('month_ref', monthRef)
   return q
 }
 
 export const getAllBills = () =>
-  supabase.from('bills').select('*').order('month_ref', { ascending: false }).order('due_date')
+  supabase.from('bills').select('*, budget_items(active)').order('month_ref', { ascending: false }).order('due_date')
 
 export const getUpcomingBills = (days = 7) => {
   const today = format(new Date(), 'yyyy-MM-dd')
   const future = format(new Date(Date.now() + days * 86400000), 'yyyy-MM-dd')
-  return supabase.from('bills').select('*').gte('due_date', today).lte('due_date', future).eq('is_paid', false).order('due_date')
+  return supabase.from('bills').select('*, budget_items(active)').gte('due_date', today).lte('due_date', future).eq('is_paid', false).order('due_date')
 }
 
 export const upsertBill = (bill) => {
-  if (bill.id) {
-    return supabase.from('bills').update(bill).eq('id', bill.id).select().single()
+  const { budget_items, ...data } = bill
+  if (data.id) {
+    return supabase.from('bills').update(data).eq('id', data.id).select().single()
   }
-  return supabase.from('bills').insert(bill).select().single()
+  return supabase.from('bills').insert(data).select().single()
 }
 
 export const markBillPaid = (id, paid = true) =>
@@ -153,9 +158,25 @@ export const getBudgetCycle = async (monthRef) => {
   return data
 }
 
-export const upsertBudgetCycle = (cycle) => {
+export const upsertBudgetCycle = async (cycle) => {
   if (cycle.id) return supabase.from('budget_cycles').update({ ...cycle, updated_at: new Date().toISOString() }).eq('id', cycle.id).select().single()
-  return supabase.from('budget_cycles').insert(cycle).select().single()
+  // Novo ciclo: puxa reserva acumulada do mês anterior se não veio explícita
+  const payload = { ...cycle }
+  if (payload.reserva_acumulada == null) {
+    payload.reserva_acumulada = await computeRolloverReserva(payload.month_ref)
+  }
+  return supabase.from('budget_cycles').insert(payload).select().single()
+}
+
+// Saldo final de reserva de um ciclo = acumulada + aporte − usado (não negativo)
+export const computeRolloverReserva = async (monthRef) => {
+  if (!monthRef) return 0
+  const prevMonth = format(subMonths(new Date(monthRef + '-01'), 1), 'yyyy-MM')
+  const prevCycle = await getBudgetCycle(prevMonth)
+  if (!prevCycle) return 0
+  const { data: prevTxs } = await getTransactions(prevMonth)
+  const snap = computeReservaSnapshot({ cycle: prevCycle, transactions: prevTxs || [] })
+  return snap.disponivel
 }
 
 // Reseed = recalcula saldo_origem_income e saldo_origem_credit do ciclo baseado nos budget_items ativos
@@ -167,6 +188,10 @@ export const reseedBudgetCycle = async (monthRef, userId) => {
   const existing = await getBudgetCycle(monthRef)
   const start = format(startOfMonth(new Date()), 'yyyy-MM-dd')
   const end = format(endOfMonth(new Date()), 'yyyy-MM-dd')
+  // Reserva acumulada: mantém a existente se já houver ciclo; senão, puxa do mês anterior
+  const reservaAcumulada = existing?.reserva_acumulada != null
+    ? Number(existing.reserva_acumulada)
+    : await computeRolloverReserva(monthRef)
   const payload = {
     ...(existing || {}),
     user_id: userId,
@@ -176,6 +201,7 @@ export const reseedBudgetCycle = async (monthRef, userId) => {
     saldo_origem_income: income,
     saldo_origem_credit: credit,
     reserva_pct: existing?.reserva_pct || 0,
+    reserva_acumulada: reservaAcumulada,
   }
   return upsertBudgetCycle(payload)
 }
@@ -204,6 +230,7 @@ export const getAIContext = async () => {
   const freeBalance = computeFreeBalance(items || [])
   const incomeSnapshot = computeBucketSnapshot({ bucket: 'income', cycle, items: items || [], transactions: txs || [] })
   const creditSnapshot = computeBucketSnapshot({ bucket: 'credit', cycle, items: items || [], transactions: txs || [] })
+  const reservaSnapshot = computeReservaSnapshot({ cycle, transactions: txs || [] })
   const health = liveHealth({ cycle, snapshot: incomeSnapshot })
   return {
     monthRef,
@@ -215,6 +242,7 @@ export const getAIContext = async () => {
     cycle,
     incomeSnapshot,
     creditSnapshot,
+    reservaSnapshot,
     health,
     lastCheckpoints: checkpoints || [],
   }

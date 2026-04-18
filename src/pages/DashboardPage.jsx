@@ -1,12 +1,12 @@
 import { useState, useMemo } from 'react'
 import { format, differenceInDays, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { TrendingUp, AlertCircle, Target, ArrowRight, Sparkles, Settings, CheckCircle2, Clock, Wallet, CreditCard, CalendarCheck, Activity } from 'lucide-react'
+import { TrendingUp, AlertCircle, Target, ArrowRight, Sparkles, Settings, CheckCircle2, Clock, Wallet, CreditCard, CalendarCheck, Activity, PiggyBank } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useDashboard, useMonthRef } from '../hooks/useData'
 import { useAuth } from '../contexts/AuthContext'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from 'recharts'
-import { computeBucketSnapshot, liveHealth } from '../lib/budgetEngine'
+import { computeBucketSnapshot, computeReservaSnapshot, liveHealth } from '../lib/budgetEngine'
 import WeeklyCheckpointModal from '../components/WeeklyCheckpointModal'
 
 const fmt = (v) => {
@@ -65,6 +65,7 @@ export default function DashboardPage() {
 
   const incomeSnap = useMemo(() => computeBucketSnapshot({ bucket: 'income', cycle, items: budgetItems, transactions }), [cycle, budgetItems, transactions])
   const creditSnap = useMemo(() => computeBucketSnapshot({ bucket: 'credit', cycle, items: budgetItems, transactions }), [cycle, budgetItems, transactions])
+  const reservaSnap = useMemo(() => computeReservaSnapshot({ cycle, transactions }), [cycle, transactions])
   const health = useMemo(() => liveHealth({ cycle, snapshot: incomeSnap }), [cycle, incomeSnap])
   const creditUsedPct = creditSnap.saldoOrigem > 0 ? (creditSnap.gastoReal / creditSnap.saldoOrigem) * 100 : 0
 
@@ -171,6 +172,33 @@ export default function DashboardPage() {
             <StatCard label="Usado" value={creditSnap.gastoReal} color={COLORS.installment} icon={Clock}/>
             <StatCard label="Disponível" value={creditSnap.saldoDisponivel} color={COLORS.income} icon={Wallet}/>
             <StatCard label="% comprometido" value={`${creditUsedPct.toFixed(0)}%`} color={creditUsedPct > 90 ? COLORS.installment : creditUsedPct > 70 ? COLORS.essential : COLORS.income} icon={Activity} sub="do limite" />
+          </div>
+        </div>
+      )}
+
+      {/* Reserva */}
+      {cycle && reservaSnap.total > 0 && (
+        <div>
+          <p className="section-title flex items-center gap-2"><PiggyBank size={12}/> Reserva</p>
+          <div className="card space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-gray-500">Disponível</p>
+                <p className={`text-2xl font-bold ${reservaSnap.disponivel > 0 ? 'text-cyan-400' : 'text-gray-400'}`}>{fmt(reservaSnap.disponivel)}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-xs text-gray-500">Usado este ciclo</p>
+                <p className="text-sm font-bold text-red-400">{fmt(reservaSnap.usado)}</p>
+              </div>
+            </div>
+            <div className="w-full bg-gray-800 rounded-full h-2 overflow-hidden">
+              <div className="h-2 bg-cyan-500" style={{ width: `${Math.min((reservaSnap.usado / (reservaSnap.total || 1)) * 100, 100)}%` }}/>
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-[11px] pt-1 border-t border-gray-800">
+              <div><p className="text-gray-500">Acumulada do mês anterior</p><p className="font-semibold text-gray-300">{fmt(reservaSnap.acumulada)}</p></div>
+              <div><p className="text-gray-500">Aporte deste ciclo</p><p className="font-semibold text-gray-300">{fmt(reservaSnap.aporte)}</p></div>
+            </div>
+            <p className="text-[10px] text-gray-600">Gastos lançados com fonte "Reserva" não afetam sua média diária.</p>
           </div>
         </div>
       )}
