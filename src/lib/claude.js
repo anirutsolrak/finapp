@@ -6,7 +6,7 @@ const EDGE_FN_URL = 'https://vzbswcoogdarlzqstumy.supabase.co/functions/v1/claud
 const SUPABASE_ANON_KEY = 'sb_publishable_ynzrEH34nzVwEMp0m_7BZg_8ZZDB9yg'
 
 export function buildSystemPrompt(context, userName) {
-  const { monthRef, budgetItems, transactions, goals, upcomingBills, freeBalance = 0, cycle, incomeSnapshot, creditSnapshot, health, lastCheckpoints = [] } = context
+  const { monthRef, budgetItems, transactions, goals, upcomingBills, freeBalance = 0, cycle, incomeSnapshot, creditSnapshot, reservaSnapshot, health, lastCheckpoints = [] } = context
   const totalBudget = (budgetItems || []).reduce((a, i) => a + Number(i.planned_amount), 0)
   const totalSpent = (transactions || []).filter(t => t.type === 'expense').reduce((a, t) => a + Number(t.amount), 0)
   const fixedItems = (budgetItems || []).filter(i => i.is_fixed).map(i => `${i.name}: R$${i.planned_amount}`).join(', ')
@@ -22,9 +22,10 @@ Hoje é ${format(new Date(), "d 'de' MMMM 'de' yyyy", { locale: ptBR })}, mês d
 - Gasto no mês até agora: R$${totalSpent.toFixed(2)}
 - Saldo disponível: R$${(totalBudget - totalSpent).toFixed(2)}
 
-## BUCKETS (RENDA vs CRÉDITO)
+## BUCKETS (RENDA vs CRÉDITO vs RESERVA)
 ${incomeSnapshot ? `- Renda: origem R$${Number(incomeSnapshot.saldoOrigem).toFixed(2)} | gasto R$${Number(incomeSnapshot.gastoReal).toFixed(2)} | disponível R$${Number(incomeSnapshot.saldoDisponivel).toFixed(2)} | média diária R$${Number(incomeSnapshot.mediaDiaria).toFixed(2)} | meta semanal R$${Number(incomeSnapshot.metaSemanal).toFixed(2)}` : '- Renda: sem ciclo configurado'}
 ${creditSnapshot ? `- Crédito: limite R$${Number(creditSnapshot.saldoOrigem).toFixed(2)} | usado R$${Number(creditSnapshot.gastoReal).toFixed(2)} | disponível R$${Number(creditSnapshot.saldoDisponivel).toFixed(2)}` : '- Crédito: sem limite configurado'}
+${reservaSnapshot ? `- Reserva: acumulada R$${Number(reservaSnapshot.acumulada).toFixed(2)} | aporte do mês R$${Number(reservaSnapshot.aporte).toFixed(2)} | usado R$${Number(reservaSnapshot.usado).toFixed(2)} | disponível R$${Number(reservaSnapshot.disponivel).toFixed(2)}` : '- Reserva: sem saldo'}
 ${health ? `- Saúde atual: ${health.status === 'green' ? '🟢 no ritmo' : health.status === 'yellow' ? '🟡 na meta' : '🔴 estouro'} (gasto R$${Number(health.gastoReal).toFixed(2)} · previsto p/ hoje R$${Number(health.previstoHoje).toFixed(2)})` : ''}
 ${cycle ? `- Ciclo: ${cycle.start_date} → ${cycle.end_date} · reserva ${cycle.reserva_pct || 0}%` : ''}
 
@@ -64,7 +65,9 @@ ${(upcomingBills || []).map(b => `- ${b.name}: R$${b.amount} vence em ${b.due_da
 2. Ao sugerir redistribuição de orçamento para uma meta, use apenas o saldo disponível de itens variáveis.
 3. Quando o usuário relatar um gasto ou intenção de compra, faça perguntas de clarificação se necessário (valor, categoria, prazo).
 4. Para metas: sempre use \`aggressiveness\` (very_high | high | medium | low | very_low) em vez de \`monthly_contribution\` manual. Se as metas ativas já consomem >100% do saldo livre, alerte o usuário antes de criar outra.
-5. **payment_source é OBRIGATÓRIO** em add_transaction e add_budget_items (valores: "credit" | "fixed_income" | "variable_income"). Gastos no cartão de crédito = "credit"; salário/aluguel recebido = "fixed_income"; freelas/extras = "variable_income". Se o usuário não deixar claro, pergunte antes de emitir a ACTION.
+5. **payment_source é OBRIGATÓRIO** em add_transaction e add_budget_items (valores: "credit" | "fixed_income" | "variable_income" | "reserve"). Gastos no cartão de crédito = "credit"; pagos com salário/renda fixa = "fixed_income"; freelas/extras = "variable_income"; imprevistos/gastos não planejados que devem sair da reserva acumulada = "reserve". Em add_budget_items, NÃO use "reserve" (planejamento cobre apenas renda e crédito — a reserva é consumida direto via transação). Se o usuário não deixar claro, pergunte antes de emitir a ACTION.
+
+   **Reserva**: o usuário tem um bucket de reserva que acumula mês a mês (acumulada + aporte do mês − usado = disponível). Quando ele disser "salvar na reserva", "tirar da reserva", "pagar com a reserva", "usar reserva" ou descrever um imprevisto que não deve afetar a média diária/semanal da renda, use payment_source: "reserve". Gastos na reserva NÃO entram no ritmo de gasto diário/semanal da renda. A reserva nunca pode ficar negativa — se o valor solicitado exceder o disponível, alerte antes de emitir a ACTION. Para AUMENTAR a reserva ("salvar na reserva", "guardar X na reserva"), isso é feito ajustando o % de aporte do ciclo na aba Planejamento (não via add_transaction) — oriente o usuário quando ele pedir isso.
 6. Sempre que sugerir lançar dados, retorne um JSON estruturado NO FINAL da resposta, entre as tags <ACTION> e </ACTION>.
 
 Para UM item:
@@ -77,7 +80,7 @@ Para UM item:
 Para fechar a semana (checkpoint):
 {
   "type": "record_checkpoint",
-  "data": { "bucket": "income" | "credit", "saldo_real": 3200, "week_start": "2026-04-06", "note": "opcional" },
+  "data": { "bucket": "income" | "credit" | "reserve", "saldo_real": 3200, "week_start": "2026-04-06", "note": "opcional" },
   "description": "Fecha a semana com saldo real informado"
 }
 

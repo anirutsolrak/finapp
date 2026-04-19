@@ -12,12 +12,17 @@ const fmt = (v) => `R$ ${Number(v || 0).toLocaleString('pt-BR', { minimumFractio
 function BudgetVsSpent({ label, budget, spent }) {
   const pct = budget > 0 ? (spent / budget) * 100 : 0
   const color = pct > 100 ? 'text-red-400' : pct > 90 ? 'text-amber-400' : 'text-emerald-400'
+  const restante = budget - spent
+  const restanteColor = restante < 0 ? 'text-red-400' : 'text-emerald-400'
   return (
     <div className="flex items-center justify-between text-xs">
       <span className="text-gray-500">{label}</span>
       <div className="text-right">
         <p className={`font-semibold ${color}`}>{fmt(spent)}</p>
         <p className="text-gray-600 text-[10px]">de {fmt(budget)}</p>
+        <p className={`text-[10px] font-semibold ${restanteColor}`}>
+          {restante >= 0 ? 'Resta ' : 'Excedeu '}{fmt(Math.abs(restante))}
+        </p>
       </div>
     </div>
   )
@@ -163,10 +168,10 @@ export default function TransactionsPage() {
   const [modal, setModal] = useState(null)
   const [filterType, setFilterType] = useState('all')
 
-  const prevMonth = () => setMonthRef(format(subMonths(new Date(monthRef + '-01'), 1), 'yyyy-MM'))
-  const nextMonth = () => setMonthRef(format(addMonths(new Date(monthRef + '-01'), 1), 'yyyy-MM'))
+  const prevMonth = () => setMonthRef(format(subMonths(parseISO(monthRef + '-01'), 1), 'yyyy-MM'))
+  const nextMonth = () => setMonthRef(format(addMonths(parseISO(monthRef + '-01'), 1), 'yyyy-MM'))
 
-  const monthLabel = format(new Date(monthRef + '-02'), "MMMM 'de' yyyy", { locale: ptBR })
+  const monthLabel = format(parseISO(monthRef + '-01'), "MMMM 'de' yyyy", { locale: ptBR })
   const isCurrentMonth = monthRef === format(new Date(), 'yyyy-MM')
 
   const filtered = filterType === 'all' ? transactions : transactions.filter(t => t.type === filterType)
