@@ -40,7 +40,7 @@ function BillRow({ bill, onToggle, onEdit, onDelete }) {
         </div>
       </div>
       <div className="flex items-center gap-1 flex-shrink-0">
-        {bill.amount > 0 && <p className="text-sm font-bold text-white mr-1">R$ {Number(bill.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>}
+        {bill.amount > 0 && <p className="text-sm font-bold text-white mr-1">R$ {Number(bill.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>}
         {!fromPlan && <button onClick={() => onEdit(bill)} className="text-gray-600 hover:text-gray-400 p-1"><Edit2 size={14}/></button>}
         <button onClick={() => onDelete(bill)} className="text-gray-600 hover:text-red-400 p-1"><Trash2 size={14}/></button>
       </div>
@@ -64,8 +64,8 @@ function MonthAccordion({ monthRef, bills, onToggle, onEdit, onDelete, defaultOp
           {pending > 0 && <span className="badge bg-amber-500/20 text-amber-400">{pending} pendente{pending > 1 ? 's' : ''}</span>}
         </div>
         <div className="text-right">
-          <p className="text-sm font-bold text-white">R$ {total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-          <p className="text-xs text-emerald-500">R$ {paid.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} pago</p>
+          <p className="text-sm font-bold text-white">R$ {total.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+          <p className="text-xs text-emerald-500">R$ {paid.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} pago</p>
         </div>
       </button>
       {open && (
@@ -218,15 +218,15 @@ export default function BillsPage() {
             <div className="grid grid-cols-3 gap-2 text-center">
               <div>
                 <p className="text-xs text-gray-500">Total</p>
-                <p className="text-sm font-bold text-white">R$ {monthTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                <p className="text-sm font-bold text-white">R$ {monthTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
               </div>
               <div>
                 <p className="text-xs text-gray-500">Pago</p>
-                <p className="text-sm font-bold text-emerald-400">R$ {monthPaid.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                <p className="text-sm font-bold text-emerald-400">R$ {monthPaid.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
               </div>
               <div>
                 <p className="text-xs text-gray-500">Pendente</p>
-                <p className="text-sm font-bold text-amber-400">R$ {(monthTotal - monthPaid).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                <p className="text-sm font-bold text-amber-400">R$ {(monthTotal - monthPaid).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
               </div>
             </div>
           </div>

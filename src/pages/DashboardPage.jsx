@@ -13,7 +13,7 @@ const fmt = (v) => {
   if (typeof v === 'string') return v
   const n = Number(v)
   if (!Number.isFinite(n)) return 'R$ 0,00'
-  return `R$ ${n.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+  return `R$ ${n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
 const COLORS = { income: '#10b981', essential: '#f59e0b', variable: '#f97316', investment: '#8b5cf6', installment: '#ef4444', reserve: '#06b6d4', credit: '#a855f7' }

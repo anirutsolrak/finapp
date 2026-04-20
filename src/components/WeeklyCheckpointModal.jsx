@@ -4,7 +4,7 @@ import { addCheckpoint } from '../lib/db'
 import { healthStatus, isoWeekBounds, computeBucketSnapshot } from '../lib/budgetEngine'
 import { subDays } from 'date-fns'
 
-const fmt = v => `R$ ${Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+const fmt = v => `R$ ${Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
 export default function WeeklyCheckpointModal({ cycle, items, transactions, userId, onClose, onSaved }) {
   const prevWeek = useMemo(() => isoWeekBounds(subDays(new Date(), 7)), [])

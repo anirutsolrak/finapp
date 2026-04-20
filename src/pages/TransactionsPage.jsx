@@ -7,7 +7,7 @@ import { addTransaction, deleteTransaction, updateTransaction } from '../lib/db'
 import { useAuth } from '../contexts/AuthContext'
 import { PAYMENT_SOURCE_LABELS, PAYMENT_SOURCE_ORDER, computeBucketSnapshot, computeReservaSnapshot, bucketOf } from '../lib/budgetEngine'
 
-const fmt = (v) => `R$ ${Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+const fmt = (v) => `R$ ${Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
 function BudgetVsSpent({ label, budget, spent }) {
   const pct = budget > 0 ? (spent / budget) * 100 : 0
@@ -64,7 +64,7 @@ function TxModal({ onClose, onSaved, initial, categories, userId, reservaSnapsho
     if (form.payment_source === 'reserve' && form.type === 'expense') {
       const novo = parseFloat(form.amount)
       if (novo > reservaDisponivelPraLancamento) {
-        return setError(`Reserva insuficiente (disponível R$ ${reservaDisponivelPraLancamento.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}).`)
+        return setError(`Reserva insuficiente (disponível R$ ${reservaDisponivelPraLancamento.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}).`)
       }
     }
     setSaving(true)
@@ -131,7 +131,7 @@ function TxModal({ onClose, onSaved, initial, categories, userId, reservaSnapsho
           </select>
           {form.payment_source === 'reserve' && form.type === 'expense' && (
             <p className="text-xs text-cyan-400 mt-1">
-              Reserva disponível: R$ {reservaDisponivelPraLancamento.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} — não entra na média diária.
+              Reserva disponível: R$ {reservaDisponivelPraLancamento.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} — não entra na média diária.
             </p>
           )}
         </div>
@@ -344,7 +344,7 @@ export default function TransactionsPage() {
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
                 <p className={`text-sm font-bold ${tx.type === 'income' ? 'text-emerald-400' : tx.type === 'expense' ? 'text-red-400' : 'text-purple-400'}`}>
-                  {tx.type === 'income' ? '+' : '-'}R$ {Number(tx.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  {tx.type === 'income' ? '+' : '-'}R$ {Number(tx.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </p>
                 <button onClick={() => setModal(tx)} className="text-gray-600 hover:text-gray-400 p-1"><Edit2 size={14}/></button>
                 <button onClick={() => handleDelete(tx.id)} className="text-gray-600 hover:text-red-400 p-1"><Trash2 size={14}/></button>
