@@ -1,8 +1,8 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { format } from 'date-fns'
 import { Plus, Edit2, Trash2, Lock, TrendingUp, TrendingDown, Settings, RefreshCw, Wallet, CreditCard, History, CheckCircle2, AlertTriangle } from 'lucide-react'
 import { useBudgetItems, useBudgetCycle, useTransactions, useCheckpoints, useMonthRef, useBills } from '../hooks/useData'
-import { upsertBudgetItem, deleteBudgetItem, upsertBudgetCycle, reseedBudgetCycle } from '../lib/db'
+import { upsertBudgetItem, deleteBudgetItem, upsertBudgetCycle } from '../lib/db'
 import { useAuth } from '../contexts/AuthContext'
 import {
   PAYMENT_SOURCE_LABELS,
@@ -129,12 +129,19 @@ function CycleModal({ cycle, userId, monthRef, onClose, onSaved }) {
     end_date: cycle?.end_date || format(new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0), 'yyyy-MM-dd'),
   }))
   const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
   async function save() {
+    setError('')
+    if (!userId) return setError('Usuário não autenticado. Faça login novamente.')
+    if (!form.start_date || !form.end_date) return setError('Informe início e fim do ciclo.')
     setSaving(true)
-    await upsertBudgetCycle({
-      ...(cycle || {}),
+    // Strip campos gerados pelo servidor e joins — payload só com colunas editáveis.
+    const { id, created_at, updated_at, categories, ...rest } = (cycle || {})
+    const payload = {
+      ...rest,
+      ...(id ? { id } : {}),
       user_id: userId,
       month_ref: monthRef,
       saldo_origem_income: parseFloat(form.saldo_origem_income) || 0,
@@ -142,10 +149,12 @@ function CycleModal({ cycle, userId, monthRef, onClose, onSaved }) {
       reserva_pct: parseFloat(form.reserva_pct) || 0,
       start_date: form.start_date,
       end_date: form.end_date,
-    })
-    onSaved()
-    onClose()
+    }
+    const res = await upsertBudgetCycle(payload)
     setSaving(false)
+    if (res?.error) return setError(res.error.message || 'Falha ao salvar ciclo.')
+    await onSaved()
+    onClose()
   }
 
   return (
@@ -179,6 +188,8 @@ function CycleModal({ cycle, userId, monthRef, onClose, onSaved }) {
           <input type="number" step="0.1" min="0" max="100" className="input" value={form.reserva_pct} onChange={e => set('reserva_pct', e.target.value)} />
           <p className="text-xs text-gray-600 mt-1">Percentual reservado antes do cálculo de média diária.</p>
         </div>
+
+        {error && <p className="text-red-400 text-sm">{error}</p>}
 
         <div className="flex gap-2 pt-1">
           <button onClick={onClose} className="btn-ghost flex-1">Cancelar</button>
@@ -243,15 +254,24 @@ export default function BudgetPage() {
   const { monthRef } = useMonthRef()
   const { items, categories, loading, refetch } = useBudgetItems()
   const { cycle, refetch: refetchCycle } = useBudgetCycle(monthRef)
-  const { transactions } = useTransactions(monthRef)
-  const { bills } = useBills(monthRef)
+  const { transactions, refetch: refetchTx } = useTransactions(monthRef)
+  const { bills, refetch: refetchBills } = useBills(monthRef)
   const { checkpoints } = useCheckpoints(40)
   const { user } = useAuth()
 
   const [tab, setTab] = useState('income')
   const [itemModal, setItemModal] = useState(null)
   const [cycleModal, setCycleModal] = useState(false)
-  const [reseeding, setReseeding] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
+
+  const refetchAll = useCallback(async () => {
+    await Promise.all([refetch(), refetchCycle(), refetchTx(), refetchBills()])
+  }, [refetch, refetchCycle, refetchTx, refetchBills])
+
+  async function handleRefresh() {
+    setRefreshing(true)
+    try { await refetchAll() } finally { setRefreshing(false) }
+  }
 
   const incomeSnapshot = useMemo(() => computeBucketSnapshot({ bucket: 'income', cycle, items, transactions, bills }), [cycle, items, transactions, bills])
   const creditSnapshot = useMemo(() => computeBucketSnapshot({ bucket: 'credit', cycle, items, transactions, bills }), [cycle, items, transactions, bills])
@@ -275,13 +295,6 @@ export default function BudgetPage() {
     refetch()
   }
 
-  async function handleReseed() {
-    setReseeding(true)
-    await reseedBudgetCycle(monthRef, user?.id)
-    await Promise.all([refetch(), refetchCycle()])
-    setReseeding(false)
-  }
-
   const activeSnapshot = tab === 'credit' ? creditSnapshot : incomeSnapshot
 
   return (
@@ -292,8 +305,8 @@ export default function BudgetPage() {
           <p className="text-xs text-gray-500 mt-0.5">Ciclo {monthRef} · {cycle ? `${cycle.start_date} → ${cycle.end_date}` : 'sem ciclo'}</p>
         </div>
         <div className="flex items-center gap-1.5">
-          <button onClick={handleReseed} disabled={reseeding} title="Reseed ciclo a partir dos itens" className="w-9 h-9 rounded-xl bg-gray-800 flex items-center justify-center text-gray-400 hover:text-emerald-400 disabled:opacity-50">
-            <RefreshCw size={16} className={reseeding ? 'animate-spin' : ''}/>
+          <button onClick={handleRefresh} disabled={refreshing} title="Atualizar valores do ciclo" className="w-9 h-9 rounded-xl bg-gray-800 flex items-center justify-center text-gray-400 hover:text-emerald-400 disabled:opacity-50">
+            <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''}/>
           </button>
           <button onClick={() => setCycleModal(true)} title="Configurar ciclo" className="w-9 h-9 rounded-xl bg-gray-800 flex items-center justify-center text-gray-400 hover:text-white">
             <Settings size={16}/>
@@ -456,7 +469,7 @@ export default function BudgetPage() {
           userId={user?.id}
           monthRef={monthRef}
           onClose={() => setCycleModal(false)}
-          onSaved={refetchCycle}
+          onSaved={refetchAll}
         />
       )}
     </div>
