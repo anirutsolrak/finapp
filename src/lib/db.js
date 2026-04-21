@@ -219,17 +219,18 @@ export const deleteCheckpoint = (id) =>
 // ─── CONTEXT SNAPSHOT FOR AI ─────────────────────────────────────────────────
 export const getAIContext = async () => {
   const monthRef = format(new Date(), 'yyyy-MM')
-  const [{ data: items }, { data: txs }, { data: goals }, { data: bills }, cycle, { data: checkpoints }] = await Promise.all([
+  const [{ data: items }, { data: txs }, { data: goals }, { data: upcoming }, { data: monthBills }, cycle, { data: checkpoints }] = await Promise.all([
     getBudgetItems(),
     getTransactions(monthRef),
     getGoals(),
     getUpcomingBills(10),
+    getBills(monthRef),
     getBudgetCycle(monthRef),
     getCheckpoints(null, 4),
   ])
   const freeBalance = computeFreeBalance(items || [])
-  const incomeSnapshot = computeBucketSnapshot({ bucket: 'income', cycle, items: items || [], transactions: txs || [] })
-  const creditSnapshot = computeBucketSnapshot({ bucket: 'credit', cycle, items: items || [], transactions: txs || [] })
+  const incomeSnapshot = computeBucketSnapshot({ bucket: 'income', cycle, items: items || [], transactions: txs || [], bills: monthBills || [] })
+  const creditSnapshot = computeBucketSnapshot({ bucket: 'credit', cycle, items: items || [], transactions: txs || [], bills: monthBills || [] })
   const reservaSnapshot = computeReservaSnapshot({ cycle, transactions: txs || [] })
   const health = liveHealth({ cycle, snapshot: incomeSnapshot })
   return {
@@ -237,7 +238,8 @@ export const getAIContext = async () => {
     budgetItems: items,
     transactions: txs,
     goals,
-    upcomingBills: bills,
+    upcomingBills: upcoming,
+    bills: monthBills,
     freeBalance,
     cycle,
     incomeSnapshot,

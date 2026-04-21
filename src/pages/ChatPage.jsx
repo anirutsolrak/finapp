@@ -324,7 +324,7 @@ export default function ChatPage() {
           const bounds = item.week_start && item.week_end
             ? { week_start: item.week_start, week_end: item.week_end }
             : isoWeekBounds(subDays(new Date(), 7))
-          const snap = computeBucketSnapshot({ bucket, cycle, items: ctx.budgetItems || [], transactions: ctx.transactions || [] })
+          const snap = computeBucketSnapshot({ bucket, cycle, items: ctx.budgetItems || [], transactions: ctx.transactions || [], bills: ctx.bills || [] })
           const saldoReal = parseFloat(item.saldo_real || item.amount || 0)
           check(await addCheckpoint({
             user_id: user.id,

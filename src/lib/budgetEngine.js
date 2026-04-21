@@ -24,9 +24,12 @@ function toDate(d) {
   return typeof d === 'string' ? parseISO(d) : new Date(d)
 }
 
-export function computeBucketSnapshot({ bucket, cycle, items = [], transactions = [], today = new Date() }) {
+// Tipos de lançamento que tiram dinheiro do bucket (despesa, transferência pra outro pote, investimento).
+const OUTFLOW_TYPES = new Set(['expense', 'transfer', 'investment'])
+
+export function computeBucketSnapshot({ bucket, cycle, items = [], transactions = [], bills = [], today = new Date() }) {
   if (!cycle) {
-    return { saldoOrigem: 0, reserva: 0, planejado: 0, gastoReal: 0, saldoDisponivel: 0, diasRestantes: 0, mediaDiaria: 0, metaSemanal: 0, pct: 0 }
+    return { saldoOrigem: 0, reserva: 0, planejado: 0, gastoReal: 0, committed: 0, saldoDisponivel: 0, diasRestantes: 0, mediaDiaria: 0, metaSemanal: 0, pct: 0 }
   }
   const saldoOrigem = Number(bucket === 'credit' ? cycle.saldo_origem_credit : cycle.saldo_origem_income) || 0
   // Reserva e média diária/semanal só fazem sentido no bucket renda.
@@ -34,16 +37,37 @@ export function computeBucketSnapshot({ bucket, cycle, items = [], transactions 
   const reserva = bucket === 'credit' ? 0 : saldoOrigem * (Number(cycle.reserva_pct) || 0) / 100
   const itemsIn = items.filter(i => bucketOf(i.payment_source) === bucket && i.categories?.type !== 'income')
   const planejado = itemsIn.reduce((a, i) => a + Number(i.planned_amount || 0), 0)
+  // Legado: soma só as transações de despesa no bucket. Mantido pra cards que mostram "gasto real".
   const gastoReal = transactions
     .filter(t => t.type === 'expense' && bucketOf(t.payment_source) === bucket)
     .reduce((a, t) => a + Number(t.amount || 0), 0)
-  const saldoDisponivel = Math.max(saldoOrigem - reserva - gastoReal, 0)
+
+  // Committed = tudo que já foi comprometido no bucket (o que entra no saldoDisponivel).
+  // Por item do planejamento: max(planned, bills linkados, tx linkadas) pra não contar em dobro quando
+  // uma bill/tx representa a execução de um item planejado. Adhoc (sem item) soma à parte.
+  let committed = 0
+  for (const item of itemsIn) {
+    const billSum = bills
+      .filter(b => b.budget_item_id === item.id)
+      .reduce((a, b) => a + Number(b.amount || 0), 0)
+    const txSum = transactions
+      .filter(t => t.budget_item_id === item.id && OUTFLOW_TYPES.has(t.type))
+      .reduce((a, t) => a + Number(t.amount || 0), 0)
+    const planned = Number(item.planned_amount || 0)
+    committed += Math.max(billSum, txSum, planned)
+  }
+  const adhocTx = transactions
+    .filter(t => OUTFLOW_TYPES.has(t.type) && !t.budget_item_id && bucketOf(t.payment_source) === bucket)
+    .reduce((a, t) => a + Number(t.amount || 0), 0)
+  committed += adhocTx
+
+  const saldoDisponivel = Math.max(saldoOrigem - reserva - committed, 0)
   const endDate = toDate(cycle.end_date)
   const diasRestantes = endDate ? Math.max(differenceInCalendarDays(endDate, today) + 1, 1) : 1
   const mediaDiaria = bucket === 'credit' ? 0 : saldoDisponivel / diasRestantes
   const metaSemanal = bucket === 'credit' ? 0 : mediaDiaria * 7
-  const pct = saldoOrigem > 0 ? (gastoReal / saldoOrigem) * 100 : 0
-  return { saldoOrigem, reserva, planejado, gastoReal, saldoDisponivel, diasRestantes, mediaDiaria, metaSemanal, pct }
+  const pct = saldoOrigem > 0 ? (committed / saldoOrigem) * 100 : 0
+  return { saldoOrigem, reserva, planejado, gastoReal, committed, saldoDisponivel, diasRestantes, mediaDiaria, metaSemanal, pct }
 }
 
 // Gera array de semanas ISO (seg-dom) dentro do ciclo com meta_semanal e saldo_previsto_final

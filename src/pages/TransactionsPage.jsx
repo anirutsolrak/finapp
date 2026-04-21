@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import { format, subMonths, addMonths, parseISO, startOfWeek, isSameDay, isAfter, isBefore } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { Plus, Trash2, ChevronLeft, ChevronRight, Filter, Edit2, TrendingUp, TrendingDown, ArrowRightLeft, Sparkles, Activity } from 'lucide-react'
-import { useTransactions, useMonthRef, useBudgetItems, useBudgetCycle } from '../hooks/useData'
+import { useTransactions, useMonthRef, useBudgetItems, useBudgetCycle, useBills } from '../hooks/useData'
 import { addTransaction, deleteTransaction, updateTransaction } from '../lib/db'
 import { useAuth } from '../contexts/AuthContext'
 import { PAYMENT_SOURCE_LABELS, PAYMENT_SOURCE_ORDER, computeBucketSnapshot, computeReservaSnapshot, bucketOf } from '../lib/budgetEngine'
@@ -45,6 +45,12 @@ function StatusDot({ spent, budget, label }) {
 
 const TYPE_LABELS = { income: 'Receita', expense: 'Despesa', investment: 'Investimento', transfer: 'Transferência' }
 const TYPE_COLORS = { income: 'chip-income', expense: 'chip-expense', investment: 'chip-investment', transfer: 'badge bg-blue-500/20 text-blue-400' }
+const SOURCE_CHIP = {
+  fixed_income: 'badge bg-emerald-500/15 text-emerald-300',
+  variable_income: 'badge bg-teal-500/15 text-teal-300',
+  credit: 'badge bg-purple-500/15 text-purple-300',
+  reserve: 'badge bg-cyan-500/15 text-cyan-300',
+}
 
 const EMPTY = { description: '', amount: '', type: 'expense', date: format(new Date(), 'yyyy-MM-dd'), category_id: '', notes: '', is_paid: true, payment_source: 'fixed_income' }
 
@@ -164,6 +170,7 @@ export default function TransactionsPage() {
   const { transactions, loading, refetch } = useTransactions(monthRef)
   const { items: budgetItems, categories } = useBudgetItems()
   const { cycle } = useBudgetCycle(monthRef)
+  const { bills } = useBills(monthRef)
   const { user } = useAuth()
   const [modal, setModal] = useState(null)
   const [filterType, setFilterType] = useState('all')
@@ -177,8 +184,8 @@ export default function TransactionsPage() {
   const filtered = filterType === 'all' ? transactions : transactions.filter(t => t.type === filterType)
 
   const incomeSnap = useMemo(
-    () => computeBucketSnapshot({ bucket: 'income', cycle, items: budgetItems, transactions }),
-    [cycle, budgetItems, transactions]
+    () => computeBucketSnapshot({ bucket: 'income', cycle, items: budgetItems, transactions, bills }),
+    [cycle, budgetItems, transactions, bills]
   )
   const reservaSnap = useMemo(
     () => computeReservaSnapshot({ cycle, transactions }),
@@ -338,6 +345,11 @@ export default function TransactionsPage() {
                 <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                   <span className="text-xs text-gray-500">{tx.date}</span>
                   <span className={TYPE_COLORS[tx.type] || 'badge bg-gray-700 text-gray-400'}>{TYPE_LABELS[tx.type]}</span>
+                  {tx.payment_source && (
+                    <span className={SOURCE_CHIP[tx.payment_source] || 'badge bg-gray-700 text-gray-400'}>
+                      {PAYMENT_SOURCE_LABELS[tx.payment_source] || tx.payment_source}
+                    </span>
+                  )}
                   {tx.categories && <span className="text-xs text-gray-500">{tx.categories.icon} {tx.categories.name}</span>}
                   {!tx.is_paid && <span className="badge bg-amber-500/20 text-amber-400">Pendente</span>}
                 </div>

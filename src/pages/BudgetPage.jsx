@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { format } from 'date-fns'
 import { Plus, Edit2, Trash2, Lock, TrendingUp, TrendingDown, Settings, RefreshCw, Wallet, CreditCard, History, CheckCircle2, AlertTriangle } from 'lucide-react'
-import { useBudgetItems, useBudgetCycle, useTransactions, useCheckpoints, useMonthRef } from '../hooks/useData'
+import { useBudgetItems, useBudgetCycle, useTransactions, useCheckpoints, useMonthRef, useBills } from '../hooks/useData'
 import { upsertBudgetItem, deleteBudgetItem, upsertBudgetCycle, reseedBudgetCycle } from '../lib/db'
 import { useAuth } from '../contexts/AuthContext'
 import {
@@ -244,6 +244,7 @@ export default function BudgetPage() {
   const { items, categories, loading, refetch } = useBudgetItems()
   const { cycle, refetch: refetchCycle } = useBudgetCycle(monthRef)
   const { transactions } = useTransactions(monthRef)
+  const { bills } = useBills(monthRef)
   const { checkpoints } = useCheckpoints(40)
   const { user } = useAuth()
 
@@ -252,8 +253,8 @@ export default function BudgetPage() {
   const [cycleModal, setCycleModal] = useState(false)
   const [reseeding, setReseeding] = useState(false)
 
-  const incomeSnapshot = useMemo(() => computeBucketSnapshot({ bucket: 'income', cycle, items, transactions }), [cycle, items, transactions])
-  const creditSnapshot = useMemo(() => computeBucketSnapshot({ bucket: 'credit', cycle, items, transactions }), [cycle, items, transactions])
+  const incomeSnapshot = useMemo(() => computeBucketSnapshot({ bucket: 'income', cycle, items, transactions, bills }), [cycle, items, transactions, bills])
+  const creditSnapshot = useMemo(() => computeBucketSnapshot({ bucket: 'credit', cycle, items, transactions, bills }), [cycle, items, transactions, bills])
   const reservaSnapshot = useMemo(() => computeReservaSnapshot({ cycle, transactions }), [cycle, transactions])
 
   const bucketItems = useMemo(() => items.filter(i => bucketOf(i.payment_source) === tab), [items, tab])

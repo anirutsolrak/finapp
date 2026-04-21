@@ -16,7 +16,7 @@ export function useDashboard(monthRef) {
     setLoading(true)
     const [summary, { data: bills }, { data: goals }, { data: items }, cycle, { data: txs }, { data: checkpoints }] = await Promise.all([
       db.getMonthSummary(monthRef),
-      db.getUpcomingBills(7),
+      db.getBills(monthRef),
       db.getGoals(),
       db.getBudgetItems(),
       db.getBudgetCycle(monthRef),

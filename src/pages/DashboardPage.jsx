@@ -63,8 +63,8 @@ export default function DashboardPage() {
 
   const { summary = {}, bills = [], goals = [], budgetItems = [], cycle = null, transactions = [], checkpoints = [] } = data || {}
 
-  const incomeSnap = useMemo(() => computeBucketSnapshot({ bucket: 'income', cycle, items: budgetItems, transactions }), [cycle, budgetItems, transactions])
-  const creditSnap = useMemo(() => computeBucketSnapshot({ bucket: 'credit', cycle, items: budgetItems, transactions }), [cycle, budgetItems, transactions])
+  const incomeSnap = useMemo(() => computeBucketSnapshot({ bucket: 'income', cycle, items: budgetItems, transactions, bills }), [cycle, budgetItems, transactions, bills])
+  const creditSnap = useMemo(() => computeBucketSnapshot({ bucket: 'credit', cycle, items: budgetItems, transactions, bills }), [cycle, budgetItems, transactions, bills])
   const reservaSnap = useMemo(() => computeReservaSnapshot({ cycle, transactions }), [cycle, transactions])
   const health = useMemo(() => liveHealth({ cycle, snapshot: incomeSnap }), [cycle, incomeSnap])
   const creditUsedPct = creditSnap.saldoOrigem > 0 ? (creditSnap.gastoReal / creditSnap.saldoOrigem) * 100 : 0
@@ -352,6 +352,7 @@ export default function DashboardPage() {
           cycle={cycle}
           items={budgetItems}
           transactions={transactions}
+          bills={bills}
           userId={user?.id}
           onClose={() => setCheckpointOpen(false)}
           onSaved={refetch}

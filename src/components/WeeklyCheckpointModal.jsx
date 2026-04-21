@@ -6,11 +6,11 @@ import { subDays } from 'date-fns'
 
 const fmt = v => `R$ ${Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
-export default function WeeklyCheckpointModal({ cycle, items, transactions, userId, onClose, onSaved }) {
+export default function WeeklyCheckpointModal({ cycle, items, transactions, bills = [], userId, onClose, onSaved }) {
   const prevWeek = useMemo(() => isoWeekBounds(subDays(new Date(), 7)), [])
 
-  const incomeSnap = useMemo(() => computeBucketSnapshot({ bucket: 'income', cycle, items, transactions }), [cycle, items, transactions])
-  const creditSnap = useMemo(() => computeBucketSnapshot({ bucket: 'credit', cycle, items, transactions }), [cycle, items, transactions])
+  const incomeSnap = useMemo(() => computeBucketSnapshot({ bucket: 'income', cycle, items, transactions, bills }), [cycle, items, transactions, bills])
+  const creditSnap = useMemo(() => computeBucketSnapshot({ bucket: 'credit', cycle, items, transactions, bills }), [cycle, items, transactions, bills])
 
   const [form, setForm] = useState({
     saldo_real_income: '',
