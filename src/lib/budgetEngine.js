@@ -32,19 +32,18 @@ export function computeBucketSnapshot({ bucket, cycle, items = [], transactions 
     return { saldoOrigem: 0, reserva: 0, planejado: 0, gastoReal: 0, committed: 0, saldoDisponivel: 0, diasRestantes: 0, mediaDiaria: 0, metaSemanal: 0, pct: 0 }
   }
   const saldoOrigem = Number(bucket === 'credit' ? cycle.saldo_origem_credit : cycle.saldo_origem_income) || 0
-  // Reserva e média diária/semanal só fazem sentido no bucket renda.
-  // Crédito é dívida: limite − usado = disponível, sem projeção temporal.
-  const reserva = bucket === 'credit' ? 0 : saldoOrigem * (Number(cycle.reserva_pct) || 0) / 100
+  const reservaPct = Number(cycle.reserva_pct) || 0
+  // Reserva nominal (meta de separação do mês) — usada pelo liveHealth como linha de base do pacing.
+  const reserva = bucket === 'credit' ? 0 : saldoOrigem * reservaPct / 100
   const itemsIn = items.filter(i => bucketOf(i.payment_source) === bucket && i.categories?.type !== 'income')
   const planejado = itemsIn.reduce((a, i) => a + Number(i.planned_amount || 0), 0)
-  // Legado: soma só as transações de despesa no bucket. Mantido pra cards que mostram "gasto real".
+  // Gasto real (display e pacing): só transações de despesa no bucket.
   const gastoReal = transactions
     .filter(t => t.type === 'expense' && bucketOf(t.payment_source) === bucket)
     .reduce((a, t) => a + Number(t.amount || 0), 0)
 
-  // Committed = tudo que já foi comprometido no bucket (o que entra no saldoDisponivel).
-  // Por item do planejamento: max(planned, bills linkados, tx linkadas) pra não contar em dobro quando
-  // uma bill/tx representa a execução de um item planejado. Adhoc (sem item) soma à parte.
+  // Committed informativo: tudo que está alocado no bucket — max(planned, bills, tx) por item
+  // + adhoc. Crédito usa isso como "usado" porque o limite fica comprometido mesmo antes do pagamento.
   let committed = 0
   for (const item of itemsIn) {
     const billSum = bills
@@ -61,13 +60,34 @@ export function computeBucketSnapshot({ bucket, cycle, items = [], transactions 
     .reduce((a, t) => a + Number(t.amount || 0), 0)
   committed += adhocTx
 
-  const saldoDisponivel = Math.max(saldoOrigem - reserva - committed, 0)
+  // Saída real = só o que de fato saiu do bucket (tx de despesa/transfer/invest + bills pagas).
+  // max(paidBills, tx) por item evita dobrar quando a tx registra o pagamento da bill.
+  // Usado pelo bucket de renda no cálculo do saldoDisponivel (lembretes não-pagos e itens
+  // planejados sem tx NÃO reduzem o livre-pra-gastar — o usuário separa o dinheiro quando vai pagar).
+  let saidaReal = 0
+  for (const item of itemsIn) {
+    const paidBillsSum = bills
+      .filter(b => b.budget_item_id === item.id && b.is_paid)
+      .reduce((a, b) => a + Number(b.amount || 0), 0)
+    const txSum = transactions
+      .filter(t => t.budget_item_id === item.id && OUTFLOW_TYPES.has(t.type))
+      .reduce((a, t) => a + Number(t.amount || 0), 0)
+    saidaReal += Math.max(paidBillsSum, txSum)
+  }
+  saidaReal += adhocTx
+
+  // Renda: saldo real = origem − saída real; reserva (%) incide sobre o real restante.
+  // Crédito: disponível = limite − committed (mantém modelo antigo).
+  const saldoReal = bucket === 'credit' ? saldoOrigem - committed : saldoOrigem - saidaReal
+  const saldoDisponivel = bucket === 'credit'
+    ? Math.max(saldoReal, 0)
+    : Math.max(saldoReal * (1 - reservaPct / 100), 0)
   const endDate = toDate(cycle.end_date)
   const diasRestantes = endDate ? Math.max(differenceInCalendarDays(endDate, today) + 1, 1) : 1
   const mediaDiaria = bucket === 'credit' ? 0 : saldoDisponivel / diasRestantes
   const metaSemanal = bucket === 'credit' ? 0 : mediaDiaria * 7
   const pct = saldoOrigem > 0 ? (committed / saldoOrigem) * 100 : 0
-  return { saldoOrigem, reserva, planejado, gastoReal, committed, saldoDisponivel, diasRestantes, mediaDiaria, metaSemanal, pct }
+  return { saldoOrigem, reserva, planejado, gastoReal, committed, saidaReal, saldoReal, saldoDisponivel, diasRestantes, mediaDiaria, metaSemanal, pct }
 }
 
 // Gera array de semanas ISO (seg-dom) dentro do ciclo com meta_semanal e saldo_previsto_final
