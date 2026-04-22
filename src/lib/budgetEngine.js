@@ -60,34 +60,24 @@ export function computeBucketSnapshot({ bucket, cycle, items = [], transactions 
     .reduce((a, t) => a + Number(t.amount || 0), 0)
   committed += adhocTx
 
-  // Saída real = só o que de fato saiu do bucket (tx de despesa/transfer/invest + bills pagas).
-  // max(paidBills, tx) por item evita dobrar quando a tx registra o pagamento da bill.
-  // Usado pelo bucket de renda no cálculo do saldoDisponivel (lembretes não-pagos e itens
-  // planejados sem tx NÃO reduzem o livre-pra-gastar — o usuário separa o dinheiro quando vai pagar).
-  let saidaReal = 0
-  for (const item of itemsIn) {
-    const paidBillsSum = bills
-      .filter(b => b.budget_item_id === item.id && b.is_paid)
-      .reduce((a, b) => a + Number(b.amount || 0), 0)
-    const txSum = transactions
-      .filter(t => t.budget_item_id === item.id && OUTFLOW_TYPES.has(t.type))
-      .reduce((a, t) => a + Number(t.amount || 0), 0)
-    saidaReal += Math.max(paidBillsSum, txSum)
-  }
-  saidaReal += adhocTx
-
-  // Renda: saldo real = origem − saída real; reserva (%) incide sobre o real restante.
-  // Crédito: disponível = limite − committed (mantém modelo antigo).
-  const saldoReal = bucket === 'credit' ? saldoOrigem - committed : saldoOrigem - saidaReal
+  // Renda: saldo_origem_income representa o SALDO ATUAL em conta (usuário atualiza via Configurar ciclo
+  // quando quer forçar recálculo). Aplica-se só a reserva (%) sobre esse valor — não se subtrai saída
+  // real, pois o usuário já entrou com o valor líquido.
+  // Crédito: disponível = limite − committed (tudo que está alocado ao crédito).
   const saldoDisponivel = bucket === 'credit'
-    ? Math.max(saldoReal, 0)
-    : Math.max(saldoReal * (1 - reservaPct / 100), 0)
+    ? Math.max(saldoOrigem - committed, 0)
+    : Math.max(saldoOrigem * (1 - reservaPct / 100), 0)
   const endDate = toDate(cycle.end_date)
-  const diasRestantes = endDate ? Math.max(differenceInCalendarDays(endDate, today) + 1, 1) : 1
+  const startDate = toDate(cycle.start_date)
+  // Recálculo trava no domingo: a média/meta só muda quando vira a semana (ou quando o usuário
+  // edita saldo_origem). Entre domingos, diasRestantes/mediaDiaria/metaSemanal ficam fixos.
+  const sundayAnchor = startOfWeek(today, { weekStartsOn: 0 })
+  const anchor = startDate && isBefore(sundayAnchor, startDate) ? startDate : sundayAnchor
+  const diasRestantes = endDate ? Math.max(differenceInCalendarDays(endDate, anchor) + 1, 1) : 1
   const mediaDiaria = bucket === 'credit' ? 0 : saldoDisponivel / diasRestantes
   const metaSemanal = bucket === 'credit' ? 0 : mediaDiaria * 7
   const pct = saldoOrigem > 0 ? (committed / saldoOrigem) * 100 : 0
-  return { saldoOrigem, reserva, planejado, gastoReal, committed, saidaReal, saldoReal, saldoDisponivel, diasRestantes, mediaDiaria, metaSemanal, pct }
+  return { saldoOrigem, reserva, planejado, gastoReal, committed, saldoDisponivel, diasRestantes, mediaDiaria, metaSemanal, pct }
 }
 
 // Gera array de semanas ISO (seg-dom) dentro do ciclo com meta_semanal e saldo_previsto_final
