@@ -54,20 +54,20 @@ export const deleteTransaction = (id) =>
   supabase.from('transactions').delete().eq('id', id)
 
 // ─── BILLS ──────────────────────────────────────────────────────────────────
-// budget_items(active) permite detectar vínculos órfãos (item deletado no Planejamento)
+// budget_items(active, payment_source) permite detectar vínculos órfãos (item deletado no Planejamento)
 export const getBills = (monthRef) => {
-  let q = supabase.from('bills').select('*, budget_items(active)').order('due_date')
+  let q = supabase.from('bills').select('*, budget_items(active, payment_source)').order('due_date')
   if (monthRef) q = q.eq('month_ref', monthRef)
   return q
 }
 
 export const getAllBills = () =>
-  supabase.from('bills').select('*, budget_items(active)').order('month_ref', { ascending: false }).order('due_date')
+  supabase.from('bills').select('*, budget_items(active, payment_source)').order('month_ref', { ascending: false }).order('due_date')
 
 export const getUpcomingBills = (days = 7) => {
   const today = format(new Date(), 'yyyy-MM-dd')
   const future = format(new Date(Date.now() + days * 86400000), 'yyyy-MM-dd')
-  return supabase.from('bills').select('*, budget_items(active)').gte('due_date', today).lte('due_date', future).eq('is_paid', false).order('due_date')
+  return supabase.from('bills').select('*, budget_items(active, payment_source)').gte('due_date', today).lte('due_date', future).eq('is_paid', false).order('due_date')
 }
 
 export const upsertBill = (bill) => {

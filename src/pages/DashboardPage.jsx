@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { format, differenceInDays, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { TrendingUp, AlertCircle, Target, ArrowRight, Sparkles, Settings, CheckCircle2, Clock, Wallet, CreditCard, CalendarCheck, Activity, PiggyBank } from 'lucide-react'
+import { TrendingUp, AlertCircle, Target, ArrowRight, Sparkles, Settings, CheckCircle2, Clock, Wallet, CreditCard, CalendarCheck, Activity, PiggyBank, Lock, Receipt } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useDashboard, useMonthRef } from '../hooks/useData'
 import { useAuth } from '../contexts/AuthContext'
@@ -69,10 +69,13 @@ export default function DashboardPage() {
   const health = useMemo(() => liveHealth({ cycle, snapshot: incomeSnap }), [cycle, incomeSnap])
   const creditUsedPct = creditSnap.saldoOrigem > 0 ? (creditSnap.gastoReal / creditSnap.saldoOrigem) * 100 : 0
 
-  const totalIncome = cycle ? incomeSnap.saldoOrigem : (summary.income || 0)
-  const totalPaid = cycle ? incomeSnap.gastoReal : (summary.paid || 0)
-  const totalPending = cycle ? Math.max(incomeSnap.planejado - incomeSnap.gastoReal, 0) : (summary.pending || 0)
-  const projectedBalance = cycle ? incomeSnap.saldoDisponivel : (summary.projectedBalance ?? (totalIncome - totalPaid - totalPending))
+  // Bills pagas no mês (bucket renda) — exclui itens de crédito.
+  const paidBillsRendaMes = useMemo(
+    () => (bills || [])
+      .filter(b => b.is_paid && (b.budget_items?.payment_source || 'fixed_income') !== 'credit')
+      .reduce((a, b) => a + Number(b.amount || 0), 0),
+    [bills]
+  )
 
   const checkpointChart = useMemo(() => {
     const last = [...(checkpoints || [])].reverse().slice(-8)
@@ -150,15 +153,33 @@ export default function DashboardPage() {
           </button>
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <StatCard label="Receita" value={totalIncome} color={COLORS.income} icon={TrendingUp} />
-          <StatCard label="Pago" value={totalPaid} color={COLORS.income} icon={CheckCircle2} />
-          <StatCard label="A pagar" value={totalPending} color={COLORS.essential} icon={Clock} />
           <StatCard
-            label="Saldo projetado"
-            value={projectedBalance}
-            color={projectedBalance >= 0 ? COLORS.income : COLORS.installment}
+            label="Saldo atual"
+            value={incomeSnap.saldoOrigem}
+            color={COLORS.income}
             icon={Wallet}
-            sub={projectedBalance >= 0 ? 'No positivo ✓' : 'Atenção!'}
+            sub="Em conta (você atualiza no Planejamento)"
+          />
+          <StatCard
+            label="Reservado"
+            value={incomeSnap.reserva}
+            color={COLORS.reserve}
+            icon={Lock}
+            sub={`${cycle?.reserva_pct || 0}% do saldo`}
+          />
+          <StatCard
+            label="Disponível pra gastar"
+            value={incomeSnap.saldoDisponivel}
+            color={incomeSnap.saldoDisponivel >= 0 ? COLORS.income : COLORS.installment}
+            icon={TrendingUp}
+            sub={`${incomeSnap.diasRestantes}d até virar o ciclo`}
+          />
+          <StatCard
+            label="Bills pagas no mês"
+            value={paidBillsRendaMes}
+            color={COLORS.income}
+            icon={Receipt}
+            sub="Sai diretamente da conta"
           />
         </div>
       </div>

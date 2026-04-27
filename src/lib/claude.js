@@ -23,8 +23,17 @@ Hoje é ${format(new Date(), "d 'de' MMMM 'de' yyyy", { locale: ptBR })}, mês d
 - Saldo disponível: R$${(totalBudget - totalSpent).toFixed(2)}
 
 ## BUCKETS (RENDA vs CRÉDITO vs RESERVA)
-${incomeSnapshot ? `- Renda: origem R$${Number(incomeSnapshot.saldoOrigem).toFixed(2)} | gasto R$${Number(incomeSnapshot.gastoReal).toFixed(2)} | disponível R$${Number(incomeSnapshot.saldoDisponivel).toFixed(2)} | média diária R$${Number(incomeSnapshot.mediaDiaria).toFixed(2)} | meta semanal R$${Number(incomeSnapshot.metaSemanal).toFixed(2)}` : '- Renda: sem ciclo configurado'}
-${creditSnapshot ? `- Crédito: limite R$${Number(creditSnapshot.saldoOrigem).toFixed(2)} | usado R$${Number(creditSnapshot.gastoReal).toFixed(2)} | disponível R$${Number(creditSnapshot.saldoDisponivel).toFixed(2)}` : '- Crédito: sem limite configurado'}
+**Modelo de cálculo (importante):**
+- Renda: \`saldo_origem_income\` = SALDO ATUAL em conta (líquido, não receita total). O usuário atualiza esse valor manualmente em Configurar ciclo quando quer forçar recálculo.
+- Disponível pra gastar = saldo_origem × (1 − reserva%). NÃO se subtrai gasto/bills daqui — o saldo já é líquido.
+- Média diária = disponível ÷ dias_restantes_até_fim_do_ciclo.
+- Recálculo da média/meta semanal **trava no último domingo** — entre domingos os valores ficam constantes; viram só na virada de semana ou quando o usuário edita o ciclo.
+- Crédito: \`saldoDisponivel\` = limite − committed (committed = max(planned, bills, tx) por item + adhoc tx).
+- Reserva: acumulada (rollover) + aporte (saldo_origem × reserva%) − usado (tx com payment_source=reserve).
+
+**Snapshot atual:**
+${incomeSnapshot ? `- Renda: saldo atual R$${Number(incomeSnapshot.saldoOrigem).toFixed(2)} | reservado R$${Number(incomeSnapshot.reserva).toFixed(2)} | disponível R$${Number(incomeSnapshot.saldoDisponivel).toFixed(2)} | gasto via tx R$${Number(incomeSnapshot.gastoReal).toFixed(2)} | média diária R$${Number(incomeSnapshot.mediaDiaria).toFixed(2)} (${incomeSnapshot.diasRestantes}d) | meta semanal R$${Number(incomeSnapshot.metaSemanal).toFixed(2)}` : '- Renda: sem ciclo configurado'}
+${creditSnapshot ? `- Crédito: limite R$${Number(creditSnapshot.saldoOrigem).toFixed(2)} | usado (tx) R$${Number(creditSnapshot.gastoReal).toFixed(2)} | disponível R$${Number(creditSnapshot.saldoDisponivel).toFixed(2)}` : '- Crédito: sem limite configurado'}
 ${reservaSnapshot ? `- Reserva: acumulada R$${Number(reservaSnapshot.acumulada).toFixed(2)} | aporte do mês R$${Number(reservaSnapshot.aporte).toFixed(2)} | usado R$${Number(reservaSnapshot.usado).toFixed(2)} | disponível R$${Number(reservaSnapshot.disponivel).toFixed(2)}` : '- Reserva: sem saldo'}
 ${health ? `- Saúde atual: ${health.status === 'green' ? '🟢 no ritmo' : health.status === 'yellow' ? '🟡 na meta' : '🔴 estouro'} (gasto R$${Number(health.gastoReal).toFixed(2)} · previsto p/ hoje R$${Number(health.previstoHoje).toFixed(2)})` : ''}
 ${cycle ? `- Ciclo: ${cycle.start_date} → ${cycle.end_date} · reserva ${cycle.reserva_pct || 0}%` : ''}
