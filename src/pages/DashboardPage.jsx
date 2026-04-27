@@ -1,12 +1,12 @@
 import { useState, useMemo } from 'react'
-import { format, differenceInDays, parseISO } from 'date-fns'
+import { format, differenceInDays, parseISO, startOfWeek, isBefore, isAfter } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { TrendingUp, AlertCircle, Target, ArrowRight, Sparkles, Settings, CheckCircle2, Clock, Wallet, CreditCard, CalendarCheck, Activity, PiggyBank, Lock, Receipt } from 'lucide-react'
+import { TrendingUp, AlertCircle, Target, ArrowRight, Sparkles, Settings, Clock, Wallet, CreditCard, CalendarCheck, Activity, PiggyBank, Lock, Receipt } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useDashboard, useMonthRef } from '../hooks/useData'
 import { useAuth } from '../contexts/AuthContext'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from 'recharts'
-import { computeBucketSnapshot, computeReservaSnapshot, liveHealth } from '../lib/budgetEngine'
+import { computeBucketSnapshot, computeReservaSnapshot, bucketOf } from '../lib/budgetEngine'
 import WeeklyCheckpointModal from '../components/WeeklyCheckpointModal'
 
 const fmt = (v) => {
@@ -66,7 +66,6 @@ export default function DashboardPage() {
   const incomeSnap = useMemo(() => computeBucketSnapshot({ bucket: 'income', cycle, items: budgetItems, transactions, bills }), [cycle, budgetItems, transactions, bills])
   const creditSnap = useMemo(() => computeBucketSnapshot({ bucket: 'credit', cycle, items: budgetItems, transactions, bills }), [cycle, budgetItems, transactions, bills])
   const reservaSnap = useMemo(() => computeReservaSnapshot({ cycle, transactions }), [cycle, transactions])
-  const health = useMemo(() => liveHealth({ cycle, snapshot: incomeSnap }), [cycle, incomeSnap])
   const creditUsedPct = creditSnap.saldoOrigem > 0 ? (creditSnap.gastoReal / creditSnap.saldoOrigem) * 100 : 0
 
   // Bills pagas no mês (bucket renda) — exclui itens de crédito.
@@ -76,6 +75,21 @@ export default function DashboardPage() {
       .reduce((a, b) => a + Number(b.amount || 0), 0),
     [bills]
   )
+
+  // Gasto desta semana (segunda → hoje) no bucket renda — pra comparar com a meta semanal.
+  const gastoSemanaRenda = useMemo(() => {
+    const today = new Date()
+    const weekStart = startOfWeek(today, { weekStartsOn: 1 })
+    return (transactions || [])
+      .filter(t => t.type === 'expense' && bucketOf(t.payment_source) === 'income')
+      .filter(t => {
+        const d = parseISO(t.date)
+        return !isBefore(d, weekStart) && !isAfter(d, today)
+      })
+      .reduce((a, t) => a + Number(t.amount || 0), 0)
+  }, [transactions])
+  const semanaPct = incomeSnap.metaSemanal > 0 ? (gastoSemanaRenda / incomeSnap.metaSemanal) * 100 : 0
+  const semanaStatus = semanaPct > 100 ? 'red' : semanaPct >= 80 ? 'yellow' : 'green'
 
   const checkpointChart = useMemo(() => {
     const last = [...(checkpoints || [])].reverse().slice(-8)
@@ -93,15 +107,6 @@ export default function DashboardPage() {
     { name: 'Parcelas', value: summary.installment || 0, color: COLORS.installment },
     { name: 'Investimento', value: summary.investment || 0, color: COLORS.investment },
   ].filter(d => d.value > 0)
-
-  const plannedExpenses = budgetItems
-    .filter(i => i.categories?.type !== 'income')
-    .reduce((a, i) => a + Number(i.planned_amount || 0), 0)
-  const summaryPaid = summary.paid || 0
-  const summaryPending = summary.pending || 0
-  const totalPlanned = Math.max(plannedExpenses, summaryPaid + summaryPending + creditSnap.gastoReal)
-  const spentEffective = summaryPaid + summaryPending + creditSnap.gastoReal
-  const spentPctRaw = totalPlanned > 0 ? (spentEffective / totalPlanned) * 100 : 0
 
   const upcomingBills = bills.filter(b => !b.is_paid)
 
@@ -244,22 +249,25 @@ export default function DashboardPage() {
       {cycle && (
         <div className="card space-y-3">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: HEALTH[health.status] + '30' }}>
-              <Activity size={18} style={{ color: HEALTH[health.status] }}/>
+            <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: HEALTH[semanaStatus] + '30' }}>
+              <Activity size={18} style={{ color: HEALTH[semanaStatus] }}/>
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-white">
-                {health.status === 'green' && 'Economia no ritmo 🟢'}
-                {health.status === 'yellow' && 'Na meta 🟡'}
-                {health.status === 'red' && 'Estouro de orçamento 🔴'}
+                {semanaStatus === 'green' && 'Semana no ritmo 🟢'}
+                {semanaStatus === 'yellow' && 'Semana no limite 🟡'}
+                {semanaStatus === 'red' && 'Semana estourou 🔴'}
               </p>
-              <p className="text-xs text-gray-500">Gasto atual {fmt(health.gastoReal)} · esperado p/ hoje {fmt(health.previstoHoje)}</p>
+              <p className="text-xs text-gray-500">Gastou {fmt(gastoSemanaRenda)} de {fmt(incomeSnap.metaSemanal)} esta semana</p>
             </div>
             <div className="text-right">
               <p className="text-xs text-gray-500">{incomeSnap.diasRestantes}d restantes</p>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-2 pt-2 border-t border-gray-800">
+          <div className="w-full bg-gray-800 rounded-full h-2 overflow-hidden">
+            <div className="h-2 transition-all" style={{ width: `${Math.min(semanaPct, 100)}%`, background: HEALTH[semanaStatus] }}/>
+          </div>
+          <div className="grid grid-cols-2 gap-2 pt-1 border-t border-gray-800">
             <div className="rounded-lg bg-gray-800/60 p-2">
               <p className="text-[10px] text-gray-500 uppercase tracking-wide">Média diária</p>
               <p className="text-sm font-bold text-emerald-400">{fmt(incomeSnap.mediaDiaria)}</p>
@@ -269,26 +277,9 @@ export default function DashboardPage() {
               <p className="text-sm font-bold text-emerald-400">{fmt(incomeSnap.metaSemanal)}</p>
             </div>
           </div>
-          <p className="text-[10px] text-gray-500 pt-1">Baseado apenas no saldo de Renda (reserva {cycle.reserva_pct || 0}%). Crédito não entra nessa conta.</p>
+          <p className="text-[10px] text-gray-500 pt-1">Comparação semanal só do bucket Renda (reserva {cycle.reserva_pct || 0}%). Crédito e Reserva não entram aqui.</p>
         </div>
       )}
-
-      {/* Progress bar split */}
-      <div className="card">
-        <div className="flex justify-between items-center mb-2">
-          <p className="text-sm font-medium text-gray-300">Orçamento do mês</p>
-          <p className="text-sm font-bold text-white">{spentPctRaw.toFixed(0)}%</p>
-        </div>
-        <div className="w-full bg-gray-800 rounded-full h-2.5 mb-2 overflow-hidden flex">
-          <div className="h-2.5 bg-emerald-500" style={{ width: `${Math.min((summaryPaid / (totalPlanned || 1)) * 100, 100)}%` }} />
-          <div className="h-2.5 bg-amber-500" style={{ width: `${Math.min((summaryPending / (totalPlanned || 1)) * 100, 100)}%` }} />
-          <div className="h-2.5 bg-purple-500" style={{ width: `${Math.min((creditSnap.gastoReal / (totalPlanned || 1)) * 100, 100)}%` }} />
-        </div>
-        <div className="flex justify-between text-xs text-gray-500">
-          <span>{fmt(spentEffective)} de {fmt(totalPlanned)}</span>
-          <span>Pago {fmt(summaryPaid)} · A pagar {fmt(summaryPending)} · Crédito {fmt(creditSnap.gastoReal)}</span>
-        </div>
-      </div>
 
       {/* Gráfico Previsto vs Real */}
       {checkpointChart.length > 0 && (
