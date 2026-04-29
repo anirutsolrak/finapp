@@ -251,12 +251,14 @@ export default function DashboardPage() {
       {/* ── Bottom trigger (único): abre drawer com Ritmo / Reserva / Metas ── */}
       {showDock && (
         <div
-          className="fixed left-0 right-0 z-30 px-4 pointer-events-none bottom-[calc(4rem+env(safe-area-inset-bottom)+0.5rem)] md:bottom-4"
+          className="fixed z-30 px-4 pointer-events-none
+                     left-0 right-0 bottom-[calc(4rem+env(safe-area-inset-bottom)+0.5rem)]
+                     md:left-60 md:right-0 md:bottom-4"
         >
-          <div className="max-w-5xl mx-auto pointer-events-auto">
+          <div className="max-w-5xl mx-auto pointer-events-auto flex md:justify-center">
             <button
               onClick={() => setDrawerOpen(true)}
-              className="w-full bg-gray-900 border border-gray-800 rounded-2xl px-4 py-3 flex items-center justify-center gap-3 hover:bg-gray-800 transition-colors shadow-lg"
+              className="w-full md:w-auto bg-gray-900 border border-gray-800 rounded-full px-4 py-2.5 md:px-5 md:py-2 flex items-center justify-center gap-3 hover:bg-gray-800 transition-colors shadow-lg"
             >
               <span className="text-gray-500 text-lg leading-none">≡</span>
               <span className="flex items-center gap-2 text-xs font-semibold tracking-wider text-gray-300">
