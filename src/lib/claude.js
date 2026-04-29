@@ -108,7 +108,7 @@ Para MÚLTIPLOS itens do mesmo tipo, use "items" como array:
 }
 
 7. Fale sempre em português brasileiro, de forma amigável e direta.
-8. Dê insights sobre distribuição de gastos e sugestões para atingir metas quando relevante. Use os snapshots de Renda/Crédito e checkpoints recentes para embasar recomendações.`
+8. Use os snapshots de Renda/Crédito/Reserva e os checkpoints recentes para embasar recomendações sobre ritmo de gasto, ajuste de meta semanal e atingimento de metas.`
 }
 
 export async function sendToClaudeAPI(messages, systemPrompt) {

@@ -5,7 +5,7 @@ import { TrendingUp, AlertCircle, Target, ArrowRight, Sparkles, Settings, Clock,
 import { useNavigate } from 'react-router-dom'
 import { useDashboard, useMonthRef } from '../hooks/useData'
 import { useAuth } from '../contexts/AuthContext'
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from 'recharts'
+import { Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from 'recharts'
 import { computeBucketSnapshot, computeReservaSnapshot, bucketOf } from '../lib/budgetEngine'
 import WeeklyCheckpointModal from '../components/WeeklyCheckpointModal'
 
@@ -61,7 +61,7 @@ export default function DashboardPage() {
   const firstName = profile?.full_name?.split(' ')[0] || 'Usuário'
   const monthLabel = format(new Date(), "MMMM 'de' yyyy", { locale: ptBR })
 
-  const { summary = {}, bills = [], goals = [], budgetItems = [], cycle = null, transactions = [], checkpoints = [] } = data || {}
+  const { bills = [], goals = [], budgetItems = [], cycle = null, transactions = [], checkpoints = [] } = data || {}
 
   const incomeSnap = useMemo(() => computeBucketSnapshot({ bucket: 'income', cycle, items: budgetItems, transactions, bills }), [cycle, budgetItems, transactions, bills])
   const creditSnap = useMemo(() => computeBucketSnapshot({ bucket: 'credit', cycle, items: budgetItems, transactions, bills }), [cycle, budgetItems, transactions, bills])
@@ -100,13 +100,6 @@ export default function DashboardPage() {
       status: cp.status,
     }))
   }, [checkpoints])
-
-  const pieData = [
-    { name: 'Essenciais', value: summary.essential || 0, color: COLORS.essential },
-    { name: 'Variáveis', value: summary.variable || 0, color: COLORS.variable },
-    { name: 'Parcelas', value: summary.installment || 0, color: COLORS.installment },
-    { name: 'Investimento', value: summary.investment || 0, color: COLORS.investment },
-  ].filter(d => d.value > 0)
 
   const upcomingBills = bills.filter(b => !b.is_paid)
 
@@ -298,34 +291,6 @@ export default function DashboardPage() {
               </Bar>
             </BarChart>
           </ResponsiveContainer>
-        </div>
-      )}
-
-      {/* Pie Chart */}
-      {pieData.length > 0 && (
-        <div className="card">
-          <p className="section-title">Distribuição de gastos</p>
-          <div className="flex items-center gap-4">
-            <ResponsiveContainer width="50%" height={140}>
-              <PieChart>
-                <Pie data={pieData} cx="50%" cy="50%" innerRadius={35} outerRadius={60} dataKey="value" strokeWidth={0}>
-                  {pieData.map((d, i) => <Cell key={i} fill={d.color}/>)}
-                </Pie>
-                <Tooltip formatter={(v) => fmt(v)} contentStyle={{ background: '#111827', border: '1px solid #374151', borderRadius: 8, color: '#f3f4f6' }}/>
-              </PieChart>
-            </ResponsiveContainer>
-            <div className="flex flex-col gap-2 flex-1">
-              {pieData.map((d, i) => (
-                <div key={i} className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full" style={{ background: d.color }}/>
-                    <span className="text-xs text-gray-400">{d.name}</span>
-                  </div>
-                  <span className="text-xs font-medium text-white">{fmt(d.value)}</span>
-                </div>
-              ))}
-            </div>
-          </div>
         </div>
       )}
 
