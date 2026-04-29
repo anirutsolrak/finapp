@@ -52,3 +52,9 @@
   to { transform: translateY(0); }
 }
 .animate-slide-up { animation: slideUp 0.22s ease-out; }
+
+@keyframes slideRight {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+.animate-slide-right { animation: slideRight 0.22s ease-out; }

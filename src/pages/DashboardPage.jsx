@@ -57,7 +57,7 @@ export default function DashboardPage() {
   const { data, loading, refetch } = useDashboard(monthRef)
   const navigate = useNavigate()
   const [checkpointOpen, setCheckpointOpen] = useState(false)
-  const [openTag, setOpenTag] = useState(null) // 'reserva' | 'ritmo' | 'metas' | null
+  const [drawerOpen, setDrawerOpen] = useState(false)
 
   const firstName = profile?.full_name?.split(' ')[0] || 'Usuário'
   const monthLabel = format(new Date(), "MMMM 'de' yyyy", { locale: ptBR })
@@ -111,32 +111,9 @@ export default function DashboardPage() {
   )
 
   const showDock = !!cycle
-  const tagDefs = cycle ? [
-    {
-      key: 'ritmo',
-      label: 'Ritmo',
-      icon: Activity,
-      color: HEALTH[semanaStatus],
-      summary: `${fmt(gastoSemanaRenda)} / ${fmt(incomeSnap.metaSemanal)}`,
-    },
-    {
-      key: 'reserva',
-      label: 'Reserva',
-      icon: PiggyBank,
-      color: COLORS.reserve,
-      summary: fmt(reservaSnap.disponivel),
-    },
-    {
-      key: 'metas',
-      label: 'Metas',
-      icon: Target,
-      color: COLORS.income,
-      summary: goals.length ? `${goals.length} ativa${goals.length > 1 ? 's' : ''}` : 'Nenhuma',
-    },
-  ] : []
 
   return (
-    <div className={`space-y-6 ${showDock ? 'pb-24' : ''}`}>
+    <div className={`space-y-6 ${showDock ? 'pb-20' : ''}`}>
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -271,56 +248,45 @@ export default function DashboardPage() {
         />
       )}
 
-      {/* ── Bottom dock: Ritmo / Reserva / Metas ── */}
+      {/* ── Bottom trigger (único): abre drawer com Ritmo / Reserva / Metas ── */}
       {showDock && (
         <div
           className="fixed left-0 right-0 z-30 px-4 pointer-events-none bottom-[calc(4rem+env(safe-area-inset-bottom)+0.5rem)] md:bottom-4"
         >
-          <div className="max-w-5xl mx-auto flex gap-2 pointer-events-auto">
-            {tagDefs.map(t => {
-              const Icon = t.icon
-              return (
-                <button
-                  key={t.key}
-                  onClick={() => setOpenTag(t.key)}
-                  className="flex-1 bg-gray-900 border border-gray-800 rounded-2xl px-3 py-2 flex items-center gap-2 hover:bg-gray-800 transition-colors shadow-lg"
-                >
-                  <div
-                    className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
-                    style={{ background: t.color + '25' }}
-                  >
-                    <Icon size={14} style={{ color: t.color }}/>
-                  </div>
-                  <div className="min-w-0 text-left flex-1">
-                    <p className="text-[10px] uppercase tracking-wide text-gray-500 leading-none">{t.label}</p>
-                    <p className="text-xs font-bold text-white truncate mt-0.5">{t.summary}</p>
-                  </div>
-                </button>
-              )
-            })}
+          <div className="max-w-5xl mx-auto pointer-events-auto">
+            <button
+              onClick={() => setDrawerOpen(true)}
+              className="w-full bg-gray-900 border border-gray-800 rounded-2xl px-4 py-3 flex items-center justify-center gap-3 hover:bg-gray-800 transition-colors shadow-lg"
+            >
+              <span className="text-gray-500 text-lg leading-none">≡</span>
+              <span className="flex items-center gap-2 text-xs font-semibold tracking-wider text-gray-300">
+                <span className="flex items-center gap-1"><Activity size={11} style={{ color: HEALTH[semanaStatus] }}/> RITMO</span>
+                <span className="text-gray-700">·</span>
+                <span className="flex items-center gap-1"><PiggyBank size={11} className="text-cyan-400"/> RESERVA</span>
+                <span className="text-gray-700">·</span>
+                <span className="flex items-center gap-1"><Target size={11} className="text-emerald-400"/> METAS</span>
+              </span>
+            </button>
           </div>
         </div>
       )}
 
-      {/* ── Overlay panel ── */}
-      {openTag && (
+      {/* ── Drawer (mobile = lateral direita; desktop = centralizado) ── */}
+      {drawerOpen && (
         <div
-          className="fixed inset-0 z-50 bg-black/40 flex items-end animate-in"
-          onClick={() => setOpenTag(null)}
+          className="fixed inset-0 z-50 bg-black/40 flex animate-in md:items-center md:justify-center md:p-4"
+          onClick={() => setDrawerOpen(false)}
         >
           <div
-            className="w-full max-w-5xl mx-auto bg-gray-900 border-t border-gray-800 rounded-t-2xl p-4 animate-slide-up max-h-[60vh] overflow-y-auto"
+            className="ml-auto h-full w-[88%] max-w-sm bg-gray-900 border-l border-gray-800 rounded-l-2xl p-4 overflow-y-auto animate-slide-right
+                       md:ml-0 md:mr-0 md:h-auto md:max-h-[85vh] md:w-full md:max-w-md md:rounded-2xl md:border md:animate-in"
             style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 1rem)' }}
             onClick={e => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-sm font-bold text-white flex items-center gap-2">
-                {openTag === 'ritmo' && <><Activity size={14} className="text-emerald-400"/> Ritmo da semana</>}
-                {openTag === 'reserva' && <><PiggyBank size={14} className="text-cyan-400"/> Reserva</>}
-                {openTag === 'metas' && <><Target size={14} className="text-emerald-400"/> Metas</>}
-              </p>
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-sm font-bold text-white">Resumo rápido</p>
               <button
-                onClick={() => setOpenTag(null)}
+                onClick={() => setDrawerOpen(false)}
                 className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-800"
                 aria-label="Fechar"
               >
@@ -328,10 +294,12 @@ export default function DashboardPage() {
               </button>
             </div>
 
-            {openTag === 'ritmo' && (
-              <div className="space-y-3">
+            <div className="space-y-4">
+              {/* Ritmo */}
+              <div className="space-y-2">
+                <p className="section-title flex items-center gap-2 mb-2"><Activity size={12}/> Ritmo da semana</p>
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: HEALTH[semanaStatus] + '30' }}>
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: HEALTH[semanaStatus] + '30' }}>
                     <Activity size={18} style={{ color: HEALTH[semanaStatus] }}/>
                   </div>
                   <div className="flex-1 min-w-0">
@@ -340,16 +308,14 @@ export default function DashboardPage() {
                       {semanaStatus === 'yellow' && 'Semana no limite 🟡'}
                       {semanaStatus === 'red' && 'Semana estourou 🔴'}
                     </p>
-                    <p className="text-xs text-gray-500">Gastou {fmt(gastoSemanaRenda)} de {fmt(incomeSnap.metaSemanal)} esta semana</p>
+                    <p className="text-xs text-gray-500 truncate">Gastou {fmt(gastoSemanaRenda)} de {fmt(incomeSnap.metaSemanal)}</p>
                   </div>
-                  <div className="text-right">
-                    <p className="text-xs text-gray-500">{incomeSnap.diasRestantes}d restantes</p>
-                  </div>
+                  <p className="text-xs text-gray-500 flex-shrink-0">{incomeSnap.diasRestantes}d</p>
                 </div>
                 <div className="w-full bg-gray-800 rounded-full h-2 overflow-hidden">
                   <div className="h-2 transition-all" style={{ width: `${Math.min(semanaPct, 100)}%`, background: HEALTH[semanaStatus] }}/>
                 </div>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 gap-2 pt-1">
                   <div className="rounded-lg bg-gray-800/60 p-2">
                     <p className="text-[10px] text-gray-500 uppercase tracking-wide">Média diária</p>
                     <p className="text-sm font-bold text-emerald-400">{fmt(incomeSnap.mediaDiaria)}</p>
@@ -359,12 +325,11 @@ export default function DashboardPage() {
                     <p className="text-sm font-bold text-emerald-400">{fmt(incomeSnap.metaSemanal)}</p>
                   </div>
                 </div>
-                <p className="text-[10px] text-gray-500">Comparação semanal só do bucket Renda (reserva {cycle.reserva_pct || 0}%). Crédito e Reserva não entram aqui.</p>
               </div>
-            )}
 
-            {openTag === 'reserva' && (
-              <div className="space-y-3">
+              {/* Reserva */}
+              <div className="space-y-2 pt-3 border-t border-gray-800">
+                <p className="section-title flex items-center gap-2 mb-2"><PiggyBank size={12}/> Reserva</p>
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-xs text-gray-500">Disponível</p>
@@ -378,27 +343,31 @@ export default function DashboardPage() {
                 <div className="w-full bg-gray-800 rounded-full h-2 overflow-hidden">
                   <div className="h-2 bg-cyan-500" style={{ width: `${Math.min((reservaSnap.usado / (reservaSnap.total || 1)) * 100, 100)}%` }}/>
                 </div>
-                <div className="grid grid-cols-2 gap-2 text-[11px] pt-1 border-t border-gray-800">
-                  <div><p className="text-gray-500">Acumulada do mês anterior</p><p className="font-semibold text-gray-300">{fmt(reservaSnap.acumulada)}</p></div>
-                  <div><p className="text-gray-500">Aporte deste ciclo</p><p className="font-semibold text-gray-300">{fmt(reservaSnap.aporte)}</p></div>
+                <div className="grid grid-cols-2 gap-2 text-[11px] pt-1">
+                  <div><p className="text-gray-500">Acumulada</p><p className="font-semibold text-gray-300">{fmt(reservaSnap.acumulada)}</p></div>
+                  <div><p className="text-gray-500">Aporte do ciclo</p><p className="font-semibold text-gray-300">{fmt(reservaSnap.aporte)}</p></div>
                 </div>
-                <p className="text-[10px] text-gray-600">Gastos lançados com fonte "Reserva" não afetam sua média diária.</p>
               </div>
-            )}
 
-            {openTag === 'metas' && (
-              <div className="space-y-3">
+              {/* Metas */}
+              <div className="space-y-2 pt-3 border-t border-gray-800">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="section-title flex items-center gap-2 mb-0"><Target size={12}/> Metas</p>
+                  {goals.length > 0 && (
+                    <button onClick={() => { setDrawerOpen(false); navigate('/goals') }} className="text-xs text-emerald-400 hover:text-emerald-300">Ver todas →</button>
+                  )}
+                </div>
                 {goals.length === 0 && (
-                  <div className="text-center py-6">
+                  <div className="text-center py-4">
                     <p className="text-sm text-gray-500">Nenhuma meta ativa.</p>
-                    <button onClick={() => { setOpenTag(null); navigate('/goals') }} className="text-xs text-emerald-400 mt-2 hover:text-emerald-300">+ Criar meta</button>
+                    <button onClick={() => { setDrawerOpen(false); navigate('/goals') }} className="text-xs text-emerald-400 mt-2 hover:text-emerald-300">+ Criar meta</button>
                   </div>
                 )}
                 {goals.slice(0, 3).map(g => {
                   const pct = Math.min((Number(g.current_amount) / Number(g.target_amount)) * 100, 100)
                   return (
                     <div key={g.id} className="rounded-xl bg-gray-800/60 p-3">
-                      <div className="flex justify-between items-start mb-2">
+                      <div className="flex justify-between items-start mb-1.5">
                         <p className="text-sm font-medium text-white truncate pr-2">{g.name}</p>
                         <span className="text-xs text-gray-500 flex-shrink-0">{pct.toFixed(0)}%</span>
                       </div>
@@ -412,13 +381,8 @@ export default function DashboardPage() {
                     </div>
                   )
                 })}
-                {goals.length > 0 && (
-                  <button onClick={() => { setOpenTag(null); navigate('/goals') }} className="w-full text-xs text-emerald-400 hover:text-emerald-300 py-1">
-                    Ver todas as metas →
-                  </button>
-                )}
               </div>
-            )}
+            </div>
           </div>
         </div>
       )}
