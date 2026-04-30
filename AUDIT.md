@@ -81,10 +81,12 @@ Detalhes completos em [scripts/README.md](scripts/README.md).
 
 ## Premissas do calculo (fonte de verdade)
 
-- **Renda (`saldoDisponivel`)** = `saldo_origem_income * (1 - reserva_pct/100)`.
-  `saldo_origem_income` representa o **saldo liquido atual em conta** —
-  voce atualiza via Configurar ciclo quando quer forcar recalculo. NAO se
-  subtrai saida real porque o usuario ja entra com o valor net.
+- **Renda (`saldoDisponivel`)** = `(saldo_origem_income − saida_pos_cutoff) * (1 − reserva_pct/100)`.
+  `saldo_origem_income` representa o saldo em conta no momento em que voce
+  salvou Configurar ciclo. `cycle.updated_at` eh o cutoff: outflow tx com
+  `created_at >= updated_at` reduzem o saldo exibido. Tx pre-cutoff sao
+  consideradas ja embutidas no saldo_origem (nao dobram). Para resetar:
+  edite Configurar ciclo (atualiza saldo + avanca cutoff em updated_at).
 - **Credito (`saldoDisponivel`)** = `limite - committed`, onde committed =
   `max(planned, bills, tx)` por item + adhoc tx no bucket.
 - **Reserva** = `reserva_acumulada (rollover) + saldo_origem_income * reserva_pct/100 - tx expense com payment_source=reserve`.

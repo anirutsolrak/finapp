@@ -24,10 +24,10 @@ Hoje é ${format(new Date(), "d 'de' MMMM 'de' yyyy", { locale: ptBR })}, mês d
 
 ## BUCKETS (RENDA vs CRÉDITO vs RESERVA)
 **Modelo de cálculo (importante):**
-- Renda: \`saldo_origem_income\` = SALDO ATUAL em conta (líquido, não receita total). O usuário atualiza esse valor manualmente em Configurar ciclo quando quer forçar recálculo.
-- Disponível pra gastar = saldo_origem × (1 − reserva%). NÃO se subtrai gasto/bills daqui — o saldo já é líquido.
-- Média diária = disponível ÷ dias_restantes_até_fim_do_ciclo.
-- Recálculo da média/meta semanal **trava no último domingo** — entre domingos os valores ficam constantes; viram só na virada de semana ou quando o usuário edita o ciclo.
+- Renda: \`saldo_origem_income\` = SALDO em conta no momento em que o usuário salvou Configurar ciclo. \`cycle.updated_at\` é o cutoff: outflows (tx expense/transfer/investment no bucket renda) com \`created_at >= updated_at\` reduzem automaticamente o saldo exibido. Tx pré-cutoff são consideradas já embutidas no saldo_origem (não dobram).
+- saldoReal = saldo_origem − soma_outflow_pos_cutoff. Disponível = saldoReal × (1 − reserva%).
+- Média diária = disponível ÷ dias_restantes_até_fim_do_ciclo. Recálculo trava no último domingo (entre domingos os valores ficam constantes).
+- Para resetar a contagem: usuário edita Configurar ciclo (atualiza saldo + zera o cutoff em updated_at).
 - Crédito: \`saldoDisponivel\` = limite − committed (committed = max(planned, bills, tx) por item + adhoc tx).
 - Reserva: acumulada (rollover) + aporte (saldo_origem × reserva%) − usado (tx com payment_source=reserve).
 

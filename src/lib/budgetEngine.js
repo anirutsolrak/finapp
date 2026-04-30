@@ -60,13 +60,21 @@ export function computeBucketSnapshot({ bucket, cycle, items = [], transactions 
     .reduce((a, t) => a + Number(t.amount || 0), 0)
   committed += adhocTx
 
-  // Renda: saldo_origem_income representa o SALDO ATUAL em conta (usuário atualiza via Configurar ciclo
-  // quando quer forçar recálculo). Aplica-se só a reserva (%) sobre esse valor — não se subtrai saída
-  // real, pois o usuário já entrou com o valor líquido.
-  // Crédito: disponível = limite − committed (tudo que está alocado ao crédito).
+  // Renda: saldo_origem_income é o SALDO em conta no momento em que o usuário salvou Configurar ciclo
+  // (cycle.updated_at é o cutoff). Outflows logados DEPOIS desse momento (tx.created_at >= updated_at)
+  // reduzem automaticamente o saldo exibido — assim o usuário lança gastos novos e o disponível cai.
+  // Tx pré-cutoff são consideradas "já embutidas" no saldo_origem (não dobram).
+  // Reserva (%) incide sobre o saldoReal (depois da subtração).
+  // Crédito: disponível = limite − committed (modelo antigo, comprometimento).
+  const cutoff = bucket === 'credit' ? null : (cycle.updated_at ? new Date(cycle.updated_at) : null)
+  const saidaSinceCutoff = bucket === 'credit' ? 0 : transactions
+    .filter(t => OUTFLOW_TYPES.has(t.type) && bucketOf(t.payment_source) === 'income')
+    .filter(t => !cutoff || (t.created_at && new Date(t.created_at) >= cutoff))
+    .reduce((a, t) => a + Number(t.amount || 0), 0)
+  const saldoReal = bucket === 'credit' ? saldoOrigem - committed : saldoOrigem - saidaSinceCutoff
   const saldoDisponivel = bucket === 'credit'
-    ? Math.max(saldoOrigem - committed, 0)
-    : Math.max(saldoOrigem * (1 - reservaPct / 100), 0)
+    ? Math.max(saldoReal, 0)
+    : Math.max(saldoReal * (1 - reservaPct / 100), 0)
   const endDate = toDate(cycle.end_date)
   const startDate = toDate(cycle.start_date)
   // Recálculo trava no domingo: a média/meta só muda quando vira a semana (ou quando o usuário
@@ -77,7 +85,7 @@ export function computeBucketSnapshot({ bucket, cycle, items = [], transactions 
   const mediaDiaria = bucket === 'credit' ? 0 : saldoDisponivel / diasRestantes
   const metaSemanal = bucket === 'credit' ? 0 : mediaDiaria * 7
   const pct = saldoOrigem > 0 ? (committed / saldoOrigem) * 100 : 0
-  return { saldoOrigem, reserva, planejado, gastoReal, committed, saldoDisponivel, diasRestantes, mediaDiaria, metaSemanal, pct }
+  return { saldoOrigem, reserva, planejado, gastoReal, committed, saidaSinceCutoff, saldoReal, saldoDisponivel, diasRestantes, mediaDiaria, metaSemanal, pct }
 }
 
 // Gera array de semanas ISO (seg-dom) dentro do ciclo com meta_semanal e saldo_previsto_final
