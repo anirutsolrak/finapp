@@ -67,7 +67,7 @@ export default function DashboardPage() {
   const incomeSnap = useMemo(() => computeBucketSnapshot({ bucket: 'income', cycle, items: budgetItems, transactions, bills }), [cycle, budgetItems, transactions, bills])
   const creditSnap = useMemo(() => computeBucketSnapshot({ bucket: 'credit', cycle, items: budgetItems, transactions, bills }), [cycle, budgetItems, transactions, bills])
   const reservaSnap = useMemo(() => computeReservaSnapshot({ cycle, transactions }), [cycle, transactions])
-  const creditUsedPct = creditSnap.saldoOrigem > 0 ? (creditSnap.gastoReal / creditSnap.saldoOrigem) * 100 : 0
+  const creditUsedPct = creditSnap.saldoOrigem > 0 ? (creditSnap.saidaSinceCutoff / creditSnap.saldoOrigem) * 100 : 0
 
   // Bills pagas no mês (bucket renda) — exclui itens de crédito.
   const paidBillsRendaMes = useMemo(
@@ -191,7 +191,7 @@ export default function DashboardPage() {
           <p className="section-title flex items-center gap-2"><CreditCard size={12}/> Crédito</p>
           <div className="grid grid-cols-2 gap-3">
             <StatCard label="Limite" value={creditSnap.saldoOrigem} color={COLORS.credit} icon={CreditCard}/>
-            <StatCard label="Usado" value={creditSnap.gastoReal} color={COLORS.installment} icon={Clock}/>
+            <StatCard label="Usado desde o ciclo" value={creditSnap.saidaSinceCutoff} color={COLORS.installment} icon={Clock}/>
             <StatCard label="Disponível" value={creditSnap.saldoDisponivel} color={COLORS.income} icon={Wallet}/>
             <StatCard label="% comprometido" value={`${creditUsedPct.toFixed(0)}%`} color={creditUsedPct > 90 ? COLORS.installment : creditUsedPct > 70 ? COLORS.essential : COLORS.income} icon={Activity} sub="do limite" />
           </div>

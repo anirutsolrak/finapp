@@ -187,22 +187,21 @@ def compute_bucket_snapshot(bucket, cycle, items, transactions, bills, today):
     )
     committed += adhoc_tx
 
-    # Renda: outflow tx logadas DEPOIS de cycle.updated_at reduzem o saldo_origem.
+    # Outflow tx logadas DEPOIS de cycle.updated_at reduzem o saldo_origem (renda E credito).
+    cutoff_str = cycle.get('updated_at')
+    cutoff = datetime.fromisoformat(cutoff_str.replace('Z', '+00:00')) if cutoff_str else None
     saida_since_cutoff = 0.0
-    if bucket != 'credit':
-        cutoff_str = cycle.get('updated_at')
-        cutoff = datetime.fromisoformat(cutoff_str.replace('Z', '+00:00')) if cutoff_str else None
-        for t in transactions:
-            if t.get('type') not in OUTFLOW_TYPES or bucket_of(t.get('payment_source')) != 'income':
+    for t in transactions:
+        if t.get('type') not in OUTFLOW_TYPES or bucket_of(t.get('payment_source')) != bucket:
+            continue
+        tcreated = t.get('created_at')
+        if cutoff and tcreated:
+            tdt = datetime.fromisoformat(tcreated.replace('Z', '+00:00'))
+            if tdt < cutoff:
                 continue
-            tcreated = t.get('created_at')
-            if cutoff and tcreated:
-                tdt = datetime.fromisoformat(tcreated.replace('Z', '+00:00'))
-                if tdt < cutoff:
-                    continue
-            saida_since_cutoff += float(t.get('amount') or 0)
+        saida_since_cutoff += float(t.get('amount') or 0)
 
-    saldo_real = saldo_origem - committed if bucket == 'credit' else saldo_origem - saida_since_cutoff
+    saldo_real = saldo_origem - saida_since_cutoff
     if bucket == 'credit':
         saldo_disponivel = max(saldo_real, 0.0)
     else:
@@ -373,9 +372,10 @@ def main():
             },
             'kpis_credito': {
                 'limite': r2(credit_snap['saldoOrigem']),
-                'usado': r2(credit_snap['gastoReal']),
+                'usado_desde_ciclo': r2(credit_snap['saidaSinceCutoff']),
+                'usado_total_mes': r2(credit_snap['gastoReal']),
                 'disponivel': r2(credit_snap['saldoDisponivel']),
-                'pct_comprometido': r2(credit_snap['pct']),
+                'pct_comprometido': r2((credit_snap['saidaSinceCutoff'] / credit_snap['saldoOrigem'] * 100) if credit_snap['saldoOrigem'] > 0 else 0),
             },
             'reserva': {
                 'acumulada': r2(reserva_snap['acumulada']),

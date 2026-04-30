@@ -60,18 +60,17 @@ export function computeBucketSnapshot({ bucket, cycle, items = [], transactions 
     .reduce((a, t) => a + Number(t.amount || 0), 0)
   committed += adhocTx
 
-  // Renda: saldo_origem_income é o SALDO em conta no momento em que o usuário salvou Configurar ciclo
-  // (cycle.updated_at é o cutoff). Outflows logados DEPOIS desse momento (tx.created_at >= updated_at)
-  // reduzem automaticamente o saldo exibido — assim o usuário lança gastos novos e o disponível cai.
+  // Modelo unificado (renda e crédito): saldo_origem é o valor em conta/limite no momento em que
+  // o usuário salvou Configurar ciclo (cycle.updated_at é o cutoff). Outflows logados DEPOIS desse
+  // momento (tx.created_at >= updated_at) reduzem automaticamente o saldo exibido.
   // Tx pré-cutoff são consideradas "já embutidas" no saldo_origem (não dobram).
-  // Reserva (%) incide sobre o saldoReal (depois da subtração).
-  // Crédito: disponível = limite − committed (modelo antigo, comprometimento).
-  const cutoff = bucket === 'credit' ? null : (cycle.updated_at ? new Date(cycle.updated_at) : null)
-  const saidaSinceCutoff = bucket === 'credit' ? 0 : transactions
-    .filter(t => OUTFLOW_TYPES.has(t.type) && bucketOf(t.payment_source) === 'income')
+  // Reserva (%) incide sobre o saldoReal só na renda (crédito não tem reserva).
+  const cutoff = cycle.updated_at ? new Date(cycle.updated_at) : null
+  const saidaSinceCutoff = transactions
+    .filter(t => OUTFLOW_TYPES.has(t.type) && bucketOf(t.payment_source) === bucket)
     .filter(t => !cutoff || (t.created_at && new Date(t.created_at) >= cutoff))
     .reduce((a, t) => a + Number(t.amount || 0), 0)
-  const saldoReal = bucket === 'credit' ? saldoOrigem - committed : saldoOrigem - saidaSinceCutoff
+  const saldoReal = saldoOrigem - saidaSinceCutoff
   const saldoDisponivel = bucket === 'credit'
     ? Math.max(saldoReal, 0)
     : Math.max(saldoReal * (1 - reservaPct / 100), 0)
