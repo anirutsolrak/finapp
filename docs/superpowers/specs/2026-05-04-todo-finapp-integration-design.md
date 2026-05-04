@@ -38,7 +38,7 @@ ALTER TABLE todo.items
 CREATE OR REPLACE FUNCTION todo.set_done_at()
 RETURNS TRIGGER AS $$
 BEGIN
-  IF NEW.done = true AND (OLD.done = false OR OLD.done IS NULL) THEN
+  IF NEW.done = true AND (OLD IS NULL OR OLD.done = false OR OLD.done IS NULL) THEN
     NEW.done_at := now();
   ELSIF NEW.done = false THEN
     NEW.done_at := NULL;
@@ -48,7 +48,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER trg_todo_done_at
-  BEFORE UPDATE ON todo.items
+  BEFORE INSERT OR UPDATE ON todo.items
   FOR EACH ROW EXECUTE FUNCTION todo.set_done_at();
 ```
 
@@ -108,12 +108,12 @@ supabase.schema('todo').from('items').select('*')
 - Lista os itens selecionados
 - Cada item tem campo de data pré-preenchido com `done_at`
 - Itens com data posterior a `budget_cycles.end_date` do ciclo corrente ficam em vermelho com mensagem: *"Item do período MM/YYYY — importe-o no período correto ou ajuste a data"*
-- Itens fora do período são excluídos automaticamente do lote de importação (não bloqueiam os outros)
+- Itens fora do período aparecem desabilitados e desmarcados no modal, com o aviso em vermelho — não bloqueiam os outros itens do lote
 
 **Passo 3 — Categorias (opcional)**
 - Pergunta: *"Deseja definir categoria específica para algum item?"*
 - Se sim: lista os itens do lote com checkbox individual + dropdown com categorias do FinAPP
-- Padrão para todos: categoria "Variável"
+- Padrão para todos: primeira categoria com `type = 'variable'` da tabela `public.categories`
 
 **Passo 4 — Confirmação e execução**
 - Resumo: X itens, total R$ Y
@@ -165,7 +165,7 @@ Após isso, o item volta ao estado "Aguardando importação" na `ListaPage`.
 | `type` | `expense` |
 | `payment_source` | `fixed_income` |
 | `date` | data confirmada no modal (padrão: `done_at`) |
-| `category_id` | categoria selecionada (padrão: id da categoria "Variável") |
+| `category_id` | categoria selecionada (padrão: id da primeira categoria com `type = 'variable'`) |
 | `is_paid` | `true` |
 | `notes` | `todo.items.notes` |
 | `month_ref` | derivado da `date` (trigger existente cuida disso) |
