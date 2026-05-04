@@ -50,8 +50,12 @@ export const updateTransaction = (id, tx) => {
   return supabase.from('transactions').update(withMonthRef(data)).eq('id', id).select().single()
 }
 
-export const deleteTransaction = (id) =>
-  supabase.from('transactions').delete().eq('id', id)
+export const deleteTransaction = async (id) => {
+  await supabase.schema('todo').from('items')
+    .update({ imported_at: null })
+    .eq('finapp_transaction_id', id)
+  return supabase.from('transactions').delete().eq('id', id)
+}
 
 // ─── BILLS ──────────────────────────────────────────────────────────────────
 // budget_items(active, payment_source) permite detectar vínculos órfãos (item deletado no Planejamento)

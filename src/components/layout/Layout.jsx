@@ -1,10 +1,11 @@
 import { Outlet, NavLink } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
-import { LayoutDashboard, Receipt, Bell, Target, PieChart, MessageCircle, Settings, LogOut, DollarSign } from 'lucide-react'
+import { LayoutDashboard, Receipt, Bell, Target, PieChart, MessageCircle, Settings, LogOut, DollarSign, ShoppingCart } from 'lucide-react'
 
 const SIDEBAR_NAV = [
   { to: '/',             icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/transactions', icon: Receipt,         label: 'Lançamentos' },
+  { to: '/lista',        icon: ShoppingCart,    label: 'Lista' },
   { to: '/budget',       icon: PieChart,        label: 'Planejamento' },
   { to: '/bills',        icon: Bell,            label: 'Agenda de pagamentos' },
   { to: '/goals',        icon: Target,          label: 'Metas' },
@@ -15,9 +16,9 @@ const SIDEBAR_NAV = [
 const BOTTOM_TABS = [
   { to: '/',             icon: LayoutDashboard, label: 'Início' },
   { to: '/transactions', icon: Receipt,         label: 'Lançamentos' },
+  { to: '/lista',        icon: ShoppingCart,    label: 'Lista' },
   { to: '/bills',        icon: Bell,            label: 'Agenda' },
   { to: '/budget',       icon: PieChart,        label: 'Planejamento' },
-  { to: '/chat',         icon: MessageCircle,   label: 'Assistente' },
 ]
 
 export default function Layout() {
