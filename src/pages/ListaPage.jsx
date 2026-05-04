@@ -68,6 +68,7 @@ function ImportModal({ items, cycle, categories, userId, onClose, onDone }) {
           notes: draft.item.notes ?? '',
         })
         if (txErr) throw new Error(txErr.message)
+        if (!tx) throw new Error('Transação não retornada pelo banco')
         await markTodoImported(draft.item.id, tx.id)
       }
       onDone()
@@ -145,7 +146,7 @@ function ImportModal({ items, cycle, categories, userId, onClose, onDone }) {
               </button>
             </div>
             {customCats && validDrafts.map((draft) => {
-              const globalIdx = drafts.indexOf(draft)
+              const globalIdx = drafts.findIndex(d => d.item.id === draft.item.id)
               return (
                 <div key={draft.item.id} className="flex items-center gap-2 bg-gray-800 rounded-xl p-3">
                   <span className="flex-1 text-sm text-white truncate">{draft.item.name}</span>
@@ -216,15 +217,18 @@ export default function ListaPage() {
 
   const load = useCallback(async () => {
     setLoading(true)
-    const [todoRes, catsRes, cycleRes] = await Promise.all([
-      getTodoItems(),
-      supabase.from('categories').select('*').order('sort_order'),
-      supabase.from('budget_cycles').select('*').eq('month_ref', monthRef).maybeSingle(),
-    ])
-    setItems(todoRes.data || [])
-    setCategories(catsRes.data || [])
-    setCycle(cycleRes.data || null)
-    setLoading(false)
+    try {
+      const [todoRes, catsRes, cycleRes] = await Promise.all([
+        getTodoItems(),
+        supabase.from('categories').select('*').order('sort_order'),
+        supabase.from('budget_cycles').select('*').eq('month_ref', monthRef).maybeSingle(),
+      ])
+      setItems(todoRes.data || [])
+      setCategories(catsRes.data || [])
+      setCycle(cycleRes.data || null)
+    } finally {
+      setLoading(false)
+    }
   }, [monthRef])
 
   useEffect(() => { load() }, [load])
