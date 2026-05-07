@@ -58,6 +58,18 @@ export function classifyTransaction(tx, account, opts = {}) {
     }
   }
 
+  // Regra 4: Conta CREDIT (compra no cartão)
+  if (account.type === 'CREDIT') {
+    const meta = tx.creditCardMetadata || {}
+    return {
+      type: 'expense',
+      payment_source: 'credit',
+      status: 'approved',
+      card_number: meta.cardNumber || null,
+      pluggy_bill_id: meta.billId || null, // será resolvido depois pra bill_id local
+    }
+  }
+
   // Mais regras vão aqui...
   return { type: 'expense', payment_source: account.payment_source, status: 'pending' }
 }

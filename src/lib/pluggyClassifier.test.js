@@ -40,4 +40,18 @@ describe('classifyTransaction', () => {
     expect(result.payment_source).toBe('fixed_income')
     expect(result.status).toBe('approved')
   })
+
+  it('compra no crédito → expense + card_number do metadata', () => {
+    const tx = {
+      amount: 119.90,  // sinal positivo no Pluggy = débito no cartão
+      descriptionRaw: 'MICROSOFT*STORE',
+      creditCardMetadata: { cardNumber: '0035', billId: 'pluggy-bill-uuid' },
+    }
+    const account = { type: 'CREDIT', payment_source: 'credit' }
+    const result = classifyTransaction(tx, account)
+    expect(result.type).toBe('expense')
+    expect(result.payment_source).toBe('credit')
+    expect(result.card_number).toBe('0035')
+    expect(result.status).toBe('approved')
+  })
 })
