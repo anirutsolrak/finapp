@@ -180,3 +180,36 @@ export const getAIContext = async () => {
     lastCheckpoints: checkpoints || [],
   }
 }
+
+// ─── PLUGGY / ACCOUNTS / INBOX ───────────────────────────────────────────────
+export const getAccounts = () =>
+  supabase.from('accounts').select('*, pluggy_items(connector_name)').order('name')
+
+export const updateAccount = (id, patch) =>
+  supabase.from('accounts').update(patch).eq('id', id).select().single()
+
+export const getPendingTransactions = (limit = 100) =>
+  supabase.from('transactions')
+    .select('*, accounts(name), categories(*)')
+    .eq('status', 'pending')
+    .order('date', { ascending: false })
+    .limit(limit)
+
+export const approveTransaction = (id, patch = {}) =>
+  supabase.from('transactions').update({ status: 'approved', ...patch }).eq('id', id)
+
+export const ignoreTransaction = (id) =>
+  supabase.from('transactions').update({ status: 'ignored' }).eq('id', id)
+
+export const getCreditCardBills = () =>
+  supabase.from('credit_card_bills')
+    .select('*, accounts(name)')
+    .order('due_date', { ascending: false })
+
+export const getUserSettings = async () => {
+  const { data } = await supabase.from('user_settings').select('*').maybeSingle()
+  return data
+}
+
+export const updateUserSettings = (patch) =>
+  supabase.from('user_settings').upsert(patch, { onConflict: 'user_id' }).select().single()
