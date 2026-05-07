@@ -141,6 +141,7 @@ serve(async (req) => {
       .from('accounts').select('*').eq('pluggy_item_id', itemId)
 
     let inserted = 0, pending = 0, skipped = 0
+    let truncated = false
 
     for (const account of accounts || []) {
       // Bills (se CREDIT) — buscar/upsert antes das tx pra poder vincular bill_id
@@ -182,25 +183,32 @@ serve(async (req) => {
       }
 
       // Lista tx desde fromDate
-      const txs = await pluggyJson<{ results: PluggyTx[] }>(
-        `/transactions?accountId=${account.pluggy_account_id}&from=${fromDate}&pageSize=500`
+      const PAGE_SIZE = 500
+      const txs = await pluggyJson<{ results: PluggyTx[]; total?: number }>(
+        `/transactions?accountId=${account.pluggy_account_id}&from=${fromDate}&pageSize=${PAGE_SIZE}`
       )
+      if ((txs.results?.length || 0) >= PAGE_SIZE) {
+        console.warn(`pluggy-sync: account ${account.pluggy_account_id} retornou ${txs.results.length} tx (limite ${PAGE_SIZE}). Possivel truncamento. Sincronize de novo.`)
+        truncated = true
+      }
 
+      // Dedup em batch: pega todos os pluggy_tx_ids existentes em uma query
+      const txIds = (txs.results || []).map(t => t.id)
+      let existingIds = new Set<string>()
+      if (txIds.length > 0) {
+        const { data: existingRows } = await supabase
+          .from('transactions').select('pluggy_tx_id').in('pluggy_tx_id', txIds)
+        existingIds = new Set((existingRows || []).map(r => r.pluggy_tx_id))
+      }
+
+      // Classifica e monta rows
+      const rowsToInsert: any[] = []
       for (const tx of txs.results || []) {
-        // Dedup
-        const { data: existing } = await supabase
-          .from('transactions').select('id').eq('pluggy_tx_id', tx.id).maybeSingle()
-        if (existing) { skipped++; continue }
-
-        // Classifica
+        if (existingIds.has(tx.id)) { skipped++; continue }
         const cls = classify(tx, account, candidateBills)
         const billLocal = cls.pluggy_bill_id ? billsByPluggyId[cls.pluggy_bill_id] : (cls.bill_id || null)
-
-        // monta amount: Pluggy retorna negativo pra DEBIT em conta corrente, positivo pra DEBIT no cartão (oposto)
-        // Normalizamos pro modelo do app: amount sempre positivo, type indica direção
         const amountAbs = Math.abs(tx.amount)
-
-        const { error: insErr } = await supabase.from('transactions').insert({
+        rowsToInsert.push({
           user_id: user.id,
           account_id: account.id,
           pluggy_tx_id: tx.id,
@@ -216,10 +224,20 @@ serve(async (req) => {
           bill_id: billLocal,
           card_number: cls.card_number || null,
         })
-        if (insErr) { console.error('insert error', insErr); continue }
-
         if (cls.status === 'pending') pending++
         else inserted++
+      }
+
+      // Insert em batch
+      if (rowsToInsert.length > 0) {
+        const { error: bulkErr } = await supabase.from('transactions').insert(rowsToInsert)
+        if (bulkErr) {
+          console.error('bulk insert error', bulkErr)
+          // Reverte contadores otimistas
+          inserted = 0
+          pending = 0
+          return jsonError(`bulk insert failed: ${bulkErr.message}`, 500)
+        }
       }
     }
 
@@ -264,7 +282,7 @@ serve(async (req) => {
       status: pluggyItem?.status || 'UPDATED',
     }).eq('id', itemId)
 
-    return new Response(JSON.stringify({ inserted, pending, skipped }), {
+    return new Response(JSON.stringify({ inserted, pending, skipped, truncated }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (err) {

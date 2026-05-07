@@ -25,7 +25,15 @@ export async function pluggyFetch(path: string, init: RequestInit = {}): Promise
   const headers = new Headers(init.headers)
   headers.set('X-API-KEY', apiKey)
   if (!headers.has('Content-Type') && init.body) headers.set('Content-Type', 'application/json')
-  return fetch(`${PLUGGY_API}${path}`, { ...init, headers })
+  let r = await fetch(`${PLUGGY_API}${path}`, { ...init, headers })
+  // Se Pluggy revogou a key, invalida cache e tenta 1x mais
+  if (r.status === 401 || r.status === 403) {
+    cachedToken = null
+    const apiKey2 = await getApiKey()
+    headers.set('X-API-KEY', apiKey2)
+    r = await fetch(`${PLUGGY_API}${path}`, { ...init, headers })
+  }
+  return r
 }
 
 export async function pluggyJson<T = any>(path: string, init: RequestInit = {}): Promise<T> {
