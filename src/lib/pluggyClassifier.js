@@ -103,3 +103,27 @@ export function classifyTransaction(tx, account, opts = {}) {
   // Mais regras vão aqui...
   return { type: 'expense', payment_source: account.payment_source, status: 'pending' }
 }
+
+const VOIDABLE_DAY_TOLERANCE = 1
+
+export function findVoidablePairs(txs) {
+  const internals = txs.filter(t => t.is_internal)
+  const outs = internals.filter(t => Number(t.amount) < 0)
+  const ins = internals.filter(t => Number(t.amount) > 0)
+  const usedIns = new Set()
+  const pairs = []
+  for (const out of outs) {
+    const outDate = new Date(out.date)
+    const candidate = ins.find(inn => {
+      if (usedIns.has(inn.id)) return false
+      if (Math.abs(Number(inn.amount) + Number(out.amount)) > 0.01) return false
+      const days = Math.abs((new Date(inn.date) - outDate) / 86400000)
+      return days <= VOIDABLE_DAY_TOLERANCE
+    })
+    if (candidate) {
+      pairs.push({ a: out.id, b: candidate.id })
+      usedIns.add(candidate.id)
+    }
+  }
+  return pairs
+}

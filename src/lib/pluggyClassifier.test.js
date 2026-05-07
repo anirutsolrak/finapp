@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { classifyTransaction } from './pluggyClassifier'
+import { classifyTransaction, findVoidablePairs } from './pluggyClassifier'
 
 describe('classifyTransaction', () => {
   it('Aplicação RDB → transfer interna', () => {
@@ -97,5 +97,42 @@ describe('classifyTransaction', () => {
     const account = { type: 'BANK', payment_source: 'fixed_income' }
     const result = classifyTransaction(tx, account)
     expect(result.status).toBe('pending')
+  })
+})
+
+describe('findVoidablePairs', () => {
+  it('par Aplicação+Resgate mesmo valor mesma data → vincula', () => {
+    const txs = [
+      { id: 'a', amount: -500, date: '2026-04-15', is_internal: true, descriptionRaw: 'Aplicação RDB' },
+      { id: 'b', amount: 500, date: '2026-04-15', is_internal: true, descriptionRaw: 'Resgate RDB' },
+      { id: 'c', amount: -100, date: '2026-04-15', is_internal: false, descriptionRaw: 'Compra' },
+    ]
+    const pairs = findVoidablePairs(txs)
+    expect(pairs).toHaveLength(1)
+    expect(pairs[0]).toEqual({ a: 'a', b: 'b' })
+  })
+
+  it('par com 1 dia de diferença → ainda vincula', () => {
+    const txs = [
+      { id: 'a', amount: -200, date: '2026-04-15', is_internal: true, descriptionRaw: 'Aplicação RDB' },
+      { id: 'b', amount: 200, date: '2026-04-16', is_internal: true, descriptionRaw: 'Resgate RDB' },
+    ]
+    expect(findVoidablePairs(txs)).toHaveLength(1)
+  })
+
+  it('par com 3 dias de diferença → não vincula', () => {
+    const txs = [
+      { id: 'a', amount: -200, date: '2026-04-15', is_internal: true, descriptionRaw: 'Aplicação RDB' },
+      { id: 'b', amount: 200, date: '2026-04-19', is_internal: true, descriptionRaw: 'Resgate RDB' },
+    ]
+    expect(findVoidablePairs(txs)).toHaveLength(0)
+  })
+
+  it('valores diferentes → não vincula', () => {
+    const txs = [
+      { id: 'a', amount: -200, date: '2026-04-15', is_internal: true, descriptionRaw: 'Aplicação RDB' },
+      { id: 'b', amount: 250, date: '2026-04-15', is_internal: true, descriptionRaw: 'Resgate RDB' },
+    ]
+    expect(findVoidablePairs(txs)).toHaveLength(0)
   })
 })
