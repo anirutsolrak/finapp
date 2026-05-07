@@ -49,6 +49,15 @@ export function classifyTransaction(tx, account, opts = {}) {
     }
   }
 
+  // Regra 3: Conta BANK + saída → expense
+  if (account.type === 'BANK' && tx.amount < 0) {
+    return {
+      type: 'expense',
+      payment_source: account.payment_source,
+      status: 'approved',
+    }
+  }
+
   // Mais regras vão aqui...
   return { type: 'expense', payment_source: account.payment_source, status: 'pending' }
 }

@@ -31,4 +31,13 @@ describe('classifyTransaction', () => {
     expect(result.bill_id).toBe('bill-uuid-1')
     expect(result.status).toBe('approved')
   })
+
+  it('compra no débito → expense com payment_source da account', () => {
+    const tx = { amount: -55, descriptionRaw: 'Compra no débito - DROGA LESTE LJ33' }
+    const account = { type: 'BANK', payment_source: 'fixed_income' }
+    const result = classifyTransaction(tx, account)
+    expect(result.type).toBe('expense')
+    expect(result.payment_source).toBe('fixed_income')
+    expect(result.status).toBe('approved')
+  })
 })
