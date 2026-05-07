@@ -77,4 +77,25 @@ describe('classifyTransaction', () => {
     expect(result.type).toBe('income')
     expect(result.status).toBe('pending')
   })
+
+  it('reembolso → pending (vai pra inbox)', () => {
+    const tx = {
+      amount: 76.49,
+      descriptionRaw: 'Reembolso recebido pelo Pix - KEETA DELIVERY BRAZIL LTDA',
+    }
+    const account = { type: 'BANK', payment_source: 'fixed_income' }
+    const result = classifyTransaction(tx, account)
+    expect(result.status).toBe('pending')
+    expect(result.type).toBe('income')
+  })
+
+  it('estorno → pending', () => {
+    const tx = {
+      amount: 50,
+      descriptionRaw: 'Estorno de compra',
+    }
+    const account = { type: 'BANK', payment_source: 'fixed_income' }
+    const result = classifyTransaction(tx, account)
+    expect(result.status).toBe('pending')
+  })
 })

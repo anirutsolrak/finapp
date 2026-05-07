@@ -70,6 +70,16 @@ export function classifyTransaction(tx, account, opts = {}) {
     }
   }
 
+  // Regra 6: Reembolso/estorno → pending (user decide se anula original ou trata como income)
+  const desc = (tx.descriptionRaw || '').toLowerCase()
+  if (desc.includes('reembolso') || desc.includes('estorno')) {
+    return {
+      type: 'income',
+      payment_source: account.payment_source,
+      status: 'pending',
+    }
+  }
+
   // Regra 5: Salário (heurística: transferência recebida grande de CNPJ)
   const cnpjPattern = /\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}/
   const looksLikeReceivedTransfer = /transfer[êe]ncia recebida/i.test(tx.descriptionRaw || '')
