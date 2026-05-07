@@ -70,6 +70,26 @@ export function classifyTransaction(tx, account, opts = {}) {
     }
   }
 
+  // Regra 5: Salário (heurística: transferência recebida grande de CNPJ)
+  const cnpjPattern = /\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}/
+  const looksLikeReceivedTransfer = /transfer[êe]ncia recebida/i.test(tx.descriptionRaw || '')
+  if (tx.amount > 1000 && looksLikeReceivedTransfer && cnpjPattern.test(tx.descriptionRaw || '')) {
+    return {
+      type: 'income',
+      payment_source: 'fixed_income',
+      status: 'approved',
+    }
+  }
+
+  // Regra 7: amount > 0 e nada match antes → income pending (inbox)
+  if (tx.amount > 0) {
+    return {
+      type: 'income',
+      payment_source: account.payment_source,
+      status: 'pending',
+    }
+  }
+
   // Mais regras vão aqui...
   return { type: 'expense', payment_source: account.payment_source, status: 'pending' }
 }

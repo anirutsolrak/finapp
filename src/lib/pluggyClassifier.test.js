@@ -54,4 +54,27 @@ describe('classifyTransaction', () => {
     expect(result.card_number).toBe('0035')
     expect(result.status).toBe('approved')
   })
+
+  it('salário (TRANSFERÊNCIA RECEBIDA + CNPJ + > 1000) → income approved', () => {
+    const tx = {
+      amount: 8966.98,
+      descriptionRaw: 'Transferência Recebida - SOLUCAO COOPERATIVA DE TRABALH - 23.798.999/0001-61 - ITAÚ',
+    }
+    const account = { type: 'BANK', payment_source: 'fixed_income' }
+    const result = classifyTransaction(tx, account)
+    expect(result.type).toBe('income')
+    expect(result.payment_source).toBe('fixed_income')
+    expect(result.status).toBe('approved')
+  })
+
+  it('PIX recebido pequeno → pending (vai pra inbox)', () => {
+    const tx = {
+      amount: 145,
+      descriptionRaw: 'Transferência recebida pelo Pix - Gabriele Pereira da Silva',
+    }
+    const account = { type: 'BANK', payment_source: 'fixed_income' }
+    const result = classifyTransaction(tx, account)
+    expect(result.type).toBe('income')
+    expect(result.status).toBe('pending')
+  })
 })
