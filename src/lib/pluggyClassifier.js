@@ -28,7 +28,7 @@ function matchBill(tx, candidateBills = []) {
 }
 
 export function classifyTransaction(tx, account, opts = {}) {
-  // Regra 1: Aplicação/Resgate RDB → transfer interna
+  // RDB transfer interna
   if (isRdbTransfer(tx)) {
     return {
       type: 'transfer',
@@ -38,7 +38,7 @@ export function classifyTransaction(tx, account, opts = {}) {
     }
   }
 
-  // Regra 2: Pagamento de fatura → transfer vinculado a bill
+  // Pagamento de fatura → vincula bill
   if (isPaymentOfBill(tx)) {
     const bill_id = matchBill(tx, opts.candidateBills)
     return {
@@ -49,7 +49,7 @@ export function classifyTransaction(tx, account, opts = {}) {
     }
   }
 
-  // Regra 3: Conta BANK + saída → expense
+  // BANK + saída → expense
   if (account.type === 'BANK' && tx.amount < 0) {
     return {
       type: 'expense',
@@ -58,7 +58,7 @@ export function classifyTransaction(tx, account, opts = {}) {
     }
   }
 
-  // Regra 4: Conta CREDIT (compra no cartão)
+  // CREDIT (compra no cartão)
   if (account.type === 'CREDIT') {
     const meta = tx.creditCardMetadata || {}
     return {
@@ -70,7 +70,7 @@ export function classifyTransaction(tx, account, opts = {}) {
     }
   }
 
-  // Regra 6: Reembolso/estorno → pending (user decide se anula original ou trata como income)
+  // Reembolso/estorno → pending (precede salário pra estorno de salário não virar income approved)
   const desc = (tx.descriptionRaw || '').toLowerCase()
   if (desc.includes('reembolso') || desc.includes('estorno')) {
     return {
@@ -80,7 +80,7 @@ export function classifyTransaction(tx, account, opts = {}) {
     }
   }
 
-  // Regra 5: Salário (heurística: transferência recebida grande de CNPJ)
+  // Salário heurístico (CNPJ + > 1000)
   const cnpjPattern = /\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}/
   const looksLikeReceivedTransfer = /transfer[êe]ncia recebida/i.test(tx.descriptionRaw || '')
   if (tx.amount > 1000 && looksLikeReceivedTransfer && cnpjPattern.test(tx.descriptionRaw || '')) {
@@ -91,7 +91,7 @@ export function classifyTransaction(tx, account, opts = {}) {
     }
   }
 
-  // Regra 7: amount > 0 e nada match antes → income pending (inbox)
+  // Catch-all positivo → income pending
   if (tx.amount > 0) {
     return {
       type: 'income',
@@ -100,7 +100,7 @@ export function classifyTransaction(tx, account, opts = {}) {
     }
   }
 
-  // Mais regras vão aqui...
+  // Catch-all final → expense pending
   return { type: 'expense', payment_source: account.payment_source, status: 'pending' }
 }
 

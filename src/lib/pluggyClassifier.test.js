@@ -98,6 +98,17 @@ describe('classifyTransaction', () => {
     const result = classifyTransaction(tx, account)
     expect(result.status).toBe('pending')
   })
+
+  it('reembolso com valor alto + CNPJ NÃO vira salário (regra 6 precede regra 5)', () => {
+    const tx = {
+      amount: 8966.98,
+      descriptionRaw: 'Reembolso de Transferência Recebida - SOLUCAO COOPERATIVA - 23.798.999/0001-61',
+    }
+    const account = { type: 'BANK', payment_source: 'fixed_income' }
+    const result = classifyTransaction(tx, account)
+    expect(result.status).toBe('pending')
+    expect(result.type).toBe('income')
+  })
 })
 
 describe('findVoidablePairs', () => {
