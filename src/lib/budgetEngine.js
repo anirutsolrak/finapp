@@ -1,4 +1,4 @@
-import { addDays, differenceInCalendarDays, format, startOfWeek, endOfWeek, parseISO, isBefore } from 'date-fns'
+import { differenceInCalendarDays, format, startOfWeek, endOfWeek, parseISO, isBefore } from 'date-fns'
 
 export const PAYMENT_SOURCE_LABELS = {
   credit: 'Crédito',
@@ -33,7 +33,7 @@ export function computeBucketSnapshot({ bucket, cycle, items = [], transactions 
   }
   const saldoOrigem = Number(bucket === 'credit' ? cycle.saldo_origem_credit : cycle.saldo_origem_income) || 0
   const reservaPct = Number(cycle.reserva_pct) || 0
-  // Reserva nominal (meta de separação do mês) — usada pelo liveHealth como linha de base do pacing.
+  // Reserva nominal (meta de separação do mês) calculada sobre o saldo_origem original.
   const reserva = bucket === 'credit' ? 0 : saldoOrigem * reservaPct / 100
   const itemsIn = items.filter(i => bucketOf(i.payment_source) === bucket && i.categories?.type !== 'income')
   const planejado = itemsIn.reduce((a, i) => a + Number(i.planned_amount || 0), 0)
@@ -87,33 +87,6 @@ export function computeBucketSnapshot({ bucket, cycle, items = [], transactions 
   return { saldoOrigem, reserva, planejado, gastoReal, committed, saidaSinceCutoff, saldoReal, saldoDisponivel, diasRestantes, mediaDiaria, metaSemanal, pct }
 }
 
-// Gera array de semanas ISO (seg-dom) dentro do ciclo com meta_semanal e saldo_previsto_final
-export function projectWeeks({ cycle, snapshot, today = new Date() }) {
-  if (!cycle) return []
-  const end = toDate(cycle.end_date)
-  const weeks = []
-  let cursor = startOfWeek(today, { weekStartsOn: 1 })
-  let saldoRestante = snapshot.saldoDisponivel
-  // total de dias restantes até fim do ciclo
-  while (!isBefore(end, cursor)) {
-    const wEnd = endOfWeek(cursor, { weekStartsOn: 1 })
-    const wClamped = isBefore(end, wEnd) ? end : wEnd
-    const dias = differenceInCalendarDays(wClamped, cursor) + 1
-    const meta = snapshot.mediaDiaria * dias
-    const saldoFinal = Math.max(saldoRestante - meta, 0)
-    weeks.push({
-      week_start: format(cursor, 'yyyy-MM-dd'),
-      week_end: format(wClamped, 'yyyy-MM-dd'),
-      dias,
-      meta_semanal: meta,
-      saldo_previsto_final: saldoFinal,
-    })
-    saldoRestante = saldoFinal
-    cursor = addDays(wEnd, 1)
-  }
-  return weeks
-}
-
 export function healthStatus(real, previsto) {
   const p = Number(previsto) || 0
   const r = Number(real) || 0
@@ -122,20 +95,6 @@ export function healthStatus(real, previsto) {
   if (diff >= 0.05) return 'green'
   if (diff <= -0.05) return 'red'
   return 'yellow'
-}
-
-// Status de saúde ao vivo: real atual vs esperado para o dia corrente (interpolação linear)
-export function liveHealth({ cycle, snapshot, today = new Date() }) {
-  if (!cycle) return { status: 'yellow', delta: 0, previstoHoje: 0 }
-  const start = toDate(cycle.start_date)
-  const end = toDate(cycle.end_date)
-  const totalDias = Math.max(differenceInCalendarDays(end, start) + 1, 1)
-  const diasPassados = Math.min(Math.max(differenceInCalendarDays(today, start) + 1, 0), totalDias)
-  const gastoEsperado = (snapshot.saldoOrigem - snapshot.reserva) * (diasPassados / totalDias)
-  const gastoReal = snapshot.gastoReal
-  const delta = gastoEsperado - gastoReal
-  const status = healthStatus(gastoEsperado, gastoReal) // se real maior que esperado => red
-  return { status, delta, previstoHoje: gastoEsperado, gastoReal }
 }
 
 // Snapshot da reserva: saldo carregado do ciclo anterior + aporte deste ciclo − usado neste ciclo.

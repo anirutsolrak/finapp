@@ -14,8 +14,7 @@ export function useDashboard(monthRef) {
 
   const load = useCallback(async () => {
     setLoading(true)
-    const [summary, { data: bills }, { data: goals }, { data: items }, cycle, { data: txs }, { data: checkpoints }] = await Promise.all([
-      db.getMonthSummary(monthRef),
+    const [{ data: bills }, { data: goals }, { data: items }, cycle, { data: txs }, { data: checkpoints }] = await Promise.all([
       db.getBills(monthRef),
       db.getGoals(),
       db.getBudgetItems(),
@@ -23,7 +22,7 @@ export function useDashboard(monthRef) {
       db.getTransactions(monthRef),
       db.getCheckpoints(null, 8),
     ])
-    setData({ summary, bills, goals, budgetItems: items, cycle, transactions: txs, checkpoints: checkpoints || [] })
+    setData({ bills, goals, budgetItems: items, cycle, transactions: txs, checkpoints: checkpoints || [] })
     setLoading(false)
   }, [monthRef])
 

@@ -1,7 +1,7 @@
 import { supabase } from './supabase'
-import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns'
+import { format, subMonths } from 'date-fns'
 import { computeFreeBalance } from './goalPlanner'
-import { computeBucketSnapshot, computeReservaSnapshot, liveHealth } from './budgetEngine'
+import { computeBucketSnapshot, computeReservaSnapshot } from './budgetEngine'
 
 // ─── CATEGORIES ─────────────────────────────────────────────────────────────
 export const getCategories = () =>
@@ -112,50 +112,6 @@ export const saveChatMessage = (msg) =>
 export const clearChat = (userId) =>
   supabase.from('chat_messages').delete().eq('user_id', userId)
 
-// ─── DASHBOARD SUMMARY ───────────────────────────────────────────────────────
-export const getMonthSummary = async (monthRef) => {
-  const [txRes, billsRes] = await Promise.all([
-    supabase.from('transactions').select('amount,type,budget_item_id,categories(type)').eq('month_ref', monthRef),
-    supabase.from('bills').select('amount,is_paid,budget_item_id').eq('month_ref', monthRef),
-  ])
-  const txs = txRes.data || []
-  const bills = billsRes.data || []
-
-  const income = txs
-    .filter(t => t.categories?.type === 'income' || t.type === 'income')
-    .reduce((a, t) => a + Number(t.amount), 0)
-
-  const paidFromBills = bills
-    .filter(b => b.is_paid)
-    .reduce((a, b) => a + Number(b.amount), 0)
-  const paidFromAdhocTx = txs
-    .filter(t => t.type === 'expense' && !t.budget_item_id)
-    .reduce((a, t) => a + Number(t.amount), 0)
-  const paid = paidFromBills + paidFromAdhocTx
-
-  const pending = bills
-    .filter(b => !b.is_paid)
-    .reduce((a, b) => a + Number(b.amount), 0)
-
-  const projectedBalance = income - paid - pending
-
-  const sumByType = (type) => txs
-    .filter(t => t.categories?.type === type)
-    .reduce((a, t) => a + Number(t.amount), 0)
-
-  return {
-    income,
-    paid,
-    pending,
-    projectedBalance,
-    essential: sumByType('essential'),
-    variable: sumByType('variable'),
-    investment: sumByType('investment'),
-    installment: sumByType('installment'),
-    reserve: sumByType('reserve'),
-  }
-}
-
 // ─── BUDGET CYCLES ───────────────────────────────────────────────────────────
 export const getBudgetCycle = async (monthRef) => {
   const { data } = await supabase.from('budget_cycles').select('*').eq('month_ref', monthRef).maybeSingle()
@@ -181,33 +137,6 @@ export const computeRolloverReserva = async (monthRef) => {
   const { data: prevTxs } = await getTransactions(prevMonth)
   const snap = computeReservaSnapshot({ cycle: prevCycle, transactions: prevTxs || [] })
   return snap.disponivel
-}
-
-// Reseed = recalcula saldo_origem_income e saldo_origem_credit do ciclo baseado nos budget_items ativos
-export const reseedBudgetCycle = async (monthRef, userId) => {
-  const { data: items } = await getBudgetItems()
-  const sumBy = (pred) => (items || []).filter(pred).reduce((a, i) => a + Number(i.planned_amount || 0), 0)
-  const income = sumBy(i => i.categories?.type === 'income' && i.payment_source !== 'credit')
-  const credit = sumBy(i => i.categories?.type === 'income' && i.payment_source === 'credit')
-  const existing = await getBudgetCycle(monthRef)
-  const start = format(startOfMonth(new Date()), 'yyyy-MM-dd')
-  const end = format(endOfMonth(new Date()), 'yyyy-MM-dd')
-  // Reserva acumulada: mantém a existente se já houver ciclo; senão, puxa do mês anterior
-  const reservaAcumulada = existing?.reserva_acumulada != null
-    ? Number(existing.reserva_acumulada)
-    : await computeRolloverReserva(monthRef)
-  const payload = {
-    ...(existing || {}),
-    user_id: userId,
-    month_ref: monthRef,
-    start_date: existing?.start_date || start,
-    end_date: existing?.end_date || end,
-    saldo_origem_income: income,
-    saldo_origem_credit: credit,
-    reserva_pct: existing?.reserva_pct || 0,
-    reserva_acumulada: reservaAcumulada,
-  }
-  return upsertBudgetCycle(payload)
 }
 
 // ─── WEEKLY CHECKPOINTS ──────────────────────────────────────────────────────
@@ -236,7 +165,6 @@ export const getAIContext = async () => {
   const incomeSnapshot = computeBucketSnapshot({ bucket: 'income', cycle, items: items || [], transactions: txs || [], bills: monthBills || [] })
   const creditSnapshot = computeBucketSnapshot({ bucket: 'credit', cycle, items: items || [], transactions: txs || [], bills: monthBills || [] })
   const reservaSnapshot = computeReservaSnapshot({ cycle, transactions: txs || [] })
-  const health = liveHealth({ cycle, snapshot: incomeSnapshot })
   return {
     monthRef,
     budgetItems: items,
@@ -249,7 +177,6 @@ export const getAIContext = async () => {
     incomeSnapshot,
     creditSnapshot,
     reservaSnapshot,
-    health,
     lastCheckpoints: checkpoints || [],
   }
 }
