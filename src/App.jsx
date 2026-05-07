@@ -12,6 +12,7 @@ import BudgetPage from './pages/BudgetPage'
 import ChatPage from './pages/ChatPage'
 import SettingsPage from './pages/SettingsPage'
 import ListaPage from './pages/ListaPage'
+import ConnectionsPage from './pages/ConnectionsPage'
 
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth()
@@ -31,6 +32,7 @@ function AppRoutes() {
         <Route path="goals" element={<GoalsPage />} />
         <Route path="budget" element={<BudgetPage />} />
         <Route path="lista" element={<ListaPage />} />
+        <Route path="connections" element={<ConnectionsPage />} />
         <Route path="chat" element={<ChatPage />} />
         <Route path="settings" element={<SettingsPage />} />
       </Route>
