@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { Plus, Trash2, Edit2, Target, Lock, CheckCircle2, Sparkles } from 'lucide-react'
-import { useGoals, useBudgetItems } from '../hooks/useData'
+import { useGoals, useBudgetItems, useTransactions, useMonthRef } from '../hooks/useData'
 import { upsertGoal, deleteGoal } from '../lib/db'
 import { useAuth } from '../contexts/AuthContext'
 import {
@@ -182,8 +182,20 @@ export default function GoalsPage() {
   const { items: budgetItems } = useBudgetItems()
   const { user } = useAuth()
   const [modal, setModal] = useState(null)
+  const { monthRef } = useMonthRef()
+  const { transactions } = useTransactions(monthRef)
 
   const freeBalance = useMemo(() => computeFreeBalance(budgetItems), [budgetItems])
+
+  function computeGoalAmount(goalId) {
+    let amount = 0
+    for (const t of transactions || []) {
+      if (t.goal_id !== goalId) continue
+      if (t.type === 'transfer') amount += Number(t.amount)
+      else if (t.type === 'expense') amount -= Number(t.amount)
+    }
+    return Math.max(amount, 0)
+  }
 
   async function handleDelete(goal) {
     if (goal.is_fixed && !confirm(`"${goal.name}" é uma meta fixa. Confirma exclusão?`)) return
@@ -252,7 +264,8 @@ export default function GoalsPage() {
             </div>
           )}
           {active.map(g => {
-            const pct = Math.min((Number(g.current_amount) / Number(g.target_amount)) * 100, 100)
+            const currentAmount = computeGoalAmount(g.id)
+            const pct = Math.min((Number(currentAmount) / Number(g.target_amount)) * 100, 100)
             const total = Number(g.total_months) || 0
             const done = Number(g.months_completed) || 0
             const remainingMonths = Math.max(total - done, 0)
@@ -281,7 +294,7 @@ export default function GoalsPage() {
                 </div>
 
                 <div className="flex justify-between text-xs text-gray-400">
-                  <span>{fmtBRL(g.current_amount)}</span>
+                  <span>{fmtBRL(currentAmount)}</span>
                   <span className="font-medium text-white">{pct.toFixed(0)}%</span>
                   <span>{fmtBRL(g.target_amount)}</span>
                 </div>
