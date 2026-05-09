@@ -1,9 +1,9 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { format, differenceInDays, parseISO, addMonths, subMonths } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { Plus, CheckCircle2, Circle, Trash2, Edit2, Lock, Bell, Link, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, LayoutList, Calendar } from 'lucide-react'
+import { Plus, CheckCircle2, Circle, Trash2, Edit2, Lock, Bell, Link, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, LayoutList, Calendar, CreditCard } from 'lucide-react'
 import { useBills } from '../hooks/useData'
-import { upsertBill, markBillPaid, deleteBill } from '../lib/db'
+import { upsertBill, markBillPaid, deleteBill, getCreditCardBills } from '../lib/db'
 import { useAuth } from '../contexts/AuthContext'
 
 const EMPTY = { name: '', amount: '', due_date: format(new Date(), 'yyyy-MM-dd'), is_fixed: false, recurrence: 'none', alert_days_before: 3 }
@@ -139,7 +139,15 @@ export default function BillsPage() {
   const [viewMode, setViewMode] = useState('month') // 'month' | 'all'
   const [filterPaid, setFilterPaid] = useState('all') // 'all' | 'pending' | 'paid'
   const [modal, setModal] = useState(null)
+  const [tab, setTab] = useState('lembretes') // 'lembretes' | 'faturas'
+  const [creditBills, setCreditBills] = useState([])
   const { user } = useAuth()
+
+  useEffect(() => {
+    if (tab === 'faturas') {
+      getCreditCardBills().then(({ data }) => setCreditBills(data || []))
+    }
+  }, [tab])
 
   const monthRef = format(currentDate, 'yyyy-MM')
   const { bills, allBills, loading, refetch } = useBills(monthRef)
@@ -196,17 +204,31 @@ export default function BillsPage() {
           {urgentCount > 0 && <p className="text-xs text-amber-400 mt-0.5">⚠ {urgentCount} urgente(s) este mês</p>}
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={() => setViewMode(v => v === 'month' ? 'all' : 'month')}
-            className="btn-ghost p-2" title={viewMode === 'month' ? 'Ver todos os meses' : 'Ver por mês'}>
-            {viewMode === 'month' ? <LayoutList size={16}/> : <Calendar size={16}/>}
-          </button>
+          {tab === 'lembretes' && (
+            <button onClick={() => setViewMode(v => v === 'month' ? 'all' : 'month')}
+              className="btn-ghost p-2" title={viewMode === 'month' ? 'Ver todos os meses' : 'Ver por mês'}>
+              {viewMode === 'month' ? <LayoutList size={16}/> : <Calendar size={16}/>}
+            </button>
+          )}
           <button onClick={() => setModal({})} className="btn-primary flex items-center gap-1.5 text-sm">
             <Plus size={16}/> Manual
           </button>
         </div>
       </div>
 
-      {viewMode === 'month' ? (
+      {/* Tabs */}
+      <div className="grid grid-cols-2 gap-2 mb-4">
+        <button onClick={() => setTab('lembretes')}
+          className={`py-2 rounded-xl text-sm font-medium border ${tab === 'lembretes' ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'border-gray-700 text-gray-400'}`}>
+          Lembretes
+        </button>
+        <button onClick={() => setTab('faturas')}
+          className={`py-2 rounded-xl text-sm font-medium border flex items-center justify-center gap-1.5 ${tab === 'faturas' ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'border-gray-700 text-gray-400'}`}>
+          <CreditCard size={14}/> Faturas de Cartão
+        </button>
+      </div>
+
+      {tab === 'lembretes' && (viewMode === 'month' ? (
         <>
           {/* Navegação mensal */}
           <div className="card">
@@ -279,6 +301,28 @@ export default function BillsPage() {
               onDelete={handleDelete}
               defaultOpen={month === format(new Date(), 'yyyy-MM')}
             />
+          ))}
+        </div>
+      ))}
+
+      {tab === 'faturas' && (
+        <div className="space-y-2">
+          {creditBills.length === 0 && (
+            <div className="card text-center py-8 text-sm text-gray-500">Nenhuma fatura sincronizada ainda.</div>
+          )}
+          {creditBills.map(b => (
+            <div key={b.id} className="card flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-white">{b.accounts?.name}</p>
+                <p className="text-xs text-gray-500">Vence {b.due_date}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-sm font-bold text-white">R$ {Number(b.total_amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                <p className={`text-xs font-semibold ${b.status === 'PAID' ? 'text-emerald-400' : b.status === 'PARTIAL' ? 'text-amber-400' : 'text-red-400'}`}>
+                  {b.status === 'PAID' ? 'Paga' : b.status === 'PARTIAL' ? `Parcial — R$ ${Number(b.paid_amount).toFixed(2)}` : 'Aberta'}
+                </p>
+              </div>
+            </div>
           ))}
         </div>
       )}
