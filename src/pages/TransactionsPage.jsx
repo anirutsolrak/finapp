@@ -203,6 +203,7 @@ export default function TransactionsPage() {
     const investmentByCat = {}
 
     for (const t of transactions) {
+      if (t.is_voided) continue
       const amt = Number(t.amount) || 0
       totals[t.type] = (totals[t.type] || 0) + amt
       if (t.type === 'expense' && bucketOf(t.payment_source) === 'income') {
@@ -345,6 +346,8 @@ export default function TransactionsPage() {
                 <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                   <span className="text-xs text-gray-500">{tx.date}</span>
                   <span className={TYPE_COLORS[tx.type] || 'badge bg-gray-700 text-gray-400'}>{TYPE_LABELS[tx.type]}</span>
+                  {tx.source === 'pluggy' && <span className="badge bg-blue-500/15 text-blue-300 text-[10px]">🔌</span>}
+                  {tx.is_voided && <span className="badge bg-gray-700 text-gray-500 text-[10px]">anulado</span>}
                   {tx.payment_source && (
                     <span className={SOURCE_CHIP[tx.payment_source] || 'badge bg-gray-700 text-gray-400'}>
                       {PAYMENT_SOURCE_LABELS[tx.payment_source] || tx.payment_source}
@@ -355,7 +358,7 @@ export default function TransactionsPage() {
                 </div>
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
-                <p className={`text-sm font-bold ${tx.type === 'income' ? 'text-emerald-400' : tx.type === 'expense' ? 'text-red-400' : 'text-purple-400'}`}>
+                <p className={`text-sm font-bold ${tx.type === 'income' ? 'text-emerald-400' : tx.type === 'expense' ? 'text-red-400' : 'text-purple-400'} ${tx.is_voided ? 'opacity-40 line-through' : ''}`}>
                   {tx.type === 'income' ? '+' : '-'}R$ {Number(tx.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </p>
                 <button onClick={() => setModal(tx)} className="text-gray-600 hover:text-gray-400 p-1"><Edit2 size={14}/></button>
