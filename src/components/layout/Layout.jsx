@@ -1,6 +1,6 @@
 import { Outlet, NavLink } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
-import { LayoutDashboard, Receipt, Bell, Target, PieChart, MessageCircle, Settings, LogOut, DollarSign, ShoppingCart, Link2 } from 'lucide-react'
+import { LayoutDashboard, Receipt, Bell, Target, PieChart, MessageCircle, Settings, LogOut, DollarSign, ShoppingCart, Link2, Inbox } from 'lucide-react'
 
 const SIDEBAR_NAV = [
   { to: '/',             icon: LayoutDashboard, label: 'Dashboard' },
@@ -10,6 +10,7 @@ const SIDEBAR_NAV = [
   { to: '/bills',        icon: Bell,            label: 'Agenda de pagamentos' },
   { to: '/goals',        icon: Target,          label: 'Metas' },
   { to: '/connections',  icon: Link2,           label: 'Conexões' },
+  { to: '/inbox',        icon: Inbox,           label: 'Inbox' },
   { to: '/chat',         icon: MessageCircle,   label: 'Assistente IA' },
   { to: '/settings',     icon: Settings,        label: 'Configurações' },
 ]
