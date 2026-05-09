@@ -3,6 +3,7 @@ import { format, subMonths, addMonths, parseISO, startOfWeek, isSameDay, isAfter
 import { ptBR } from 'date-fns/locale'
 import { Plus, Trash2, ChevronLeft, ChevronRight, Filter, Edit2, TrendingUp, TrendingDown, ArrowRightLeft, Sparkles, Activity } from 'lucide-react'
 import { useTransactions, useMonthRef, useBudgetItems, useBudgetCycle, useBills } from '../hooks/useData'
+import { useAccounts } from '../hooks/usePluggy'
 import { addTransaction, deleteTransaction, updateTransaction } from '../lib/db'
 import { useAuth } from '../contexts/AuthContext'
 import { PAYMENT_SOURCE_LABELS, PAYMENT_SOURCE_ORDER, computeBucketSnapshot, computeReservaSnapshot, bucketOf } from '../lib/budgetEngine'
@@ -172,8 +173,10 @@ export default function TransactionsPage() {
   const { cycle } = useBudgetCycle(monthRef)
   const { bills } = useBills(monthRef)
   const { user } = useAuth()
+  const { accounts } = useAccounts()
   const [modal, setModal] = useState(null)
   const [filterType, setFilterType] = useState('all')
+  const [filterAccount, setFilterAccount] = useState('all')
 
   const prevMonth = () => setMonthRef(format(subMonths(parseISO(monthRef + '-01'), 1), 'yyyy-MM'))
   const nextMonth = () => setMonthRef(format(addMonths(parseISO(monthRef + '-01'), 1), 'yyyy-MM'))
@@ -181,7 +184,9 @@ export default function TransactionsPage() {
   const monthLabel = format(parseISO(monthRef + '-01'), "MMMM 'de' yyyy", { locale: ptBR })
   const isCurrentMonth = monthRef === format(new Date(), 'yyyy-MM')
 
-  const filtered = filterType === 'all' ? transactions : transactions.filter(t => t.type === filterType)
+  const filtered = transactions
+    .filter(t => filterType === 'all' || t.type === filterType)
+    .filter(t => filterAccount === 'all' || t.account_id === filterAccount)
 
   const incomeSnap = useMemo(
     () => computeBucketSnapshot({ bucket: 'income', cycle, items: budgetItems, transactions, bills }),
@@ -321,13 +326,20 @@ export default function TransactionsPage() {
       </div>
 
       {/* Filter */}
-      <div className="flex gap-2 flex-wrap">
+      <div className="flex gap-2 flex-wrap items-center">
         {['all', 'income', 'expense', 'investment', 'transfer'].map(t => (
           <button key={t} onClick={() => setFilterType(t)}
             className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all border ${filterType === t ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'border-gray-700 text-gray-400'}`}>
             {t === 'all' ? 'Todos' : TYPE_LABELS[t]}
           </button>
         ))}
+        {accounts.length > 0 && (
+          <select className="bg-gray-800 border border-gray-700 rounded-xl px-3 py-2 text-xs text-gray-200"
+            value={filterAccount} onChange={e => setFilterAccount(e.target.value)}>
+            <option value="all">Todas as contas</option>
+            {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+          </select>
+        )}
       </div>
 
       {/* List */}
