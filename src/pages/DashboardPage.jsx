@@ -1,9 +1,11 @@
 import { useState, useMemo } from 'react'
 import { format, differenceInDays, parseISO, startOfWeek, isBefore, isAfter } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { TrendingUp, AlertCircle, Target, ArrowRight, Sparkles, Settings, Clock, Wallet, CreditCard, CalendarCheck, Activity, PiggyBank, Lock, Receipt, X } from 'lucide-react'
+import { TrendingUp, AlertCircle, Target, ArrowRight, Sparkles, Settings, Clock, Wallet, CreditCard, CalendarCheck, Activity, PiggyBank, Lock, Receipt, X, RefreshCw } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useDashboard, useMonthRef } from '../hooks/useData'
+import { useConnections, usePendingTransactions } from '../hooks/usePluggy'
+import { pluggySync } from '../lib/pluggyClient'
 import { useAuth } from '../contexts/AuthContext'
 import { Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from 'recharts'
 import { computeBucketSnapshot, computeReservaSnapshot, bucketOf } from '../lib/budgetEngine'
@@ -58,6 +60,23 @@ export default function DashboardPage() {
   const navigate = useNavigate()
   const [checkpointOpen, setCheckpointOpen] = useState(false)
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const { items: connections } = useConnections()
+  const { pending } = usePendingTransactions()
+  const [syncing, setSyncing] = useState(false)
+
+  async function handleSyncAll() {
+    setSyncing(true)
+    let total = { inserted: 0, pending: 0 }
+    for (const c of connections) {
+      try {
+        const r = await pluggySync(c.id)
+        total.inserted += r.inserted
+        total.pending += r.pending
+      } catch (e) { /* segue */ }
+    }
+    setSyncing(false)
+    alert(`Sincronizado: ${total.inserted} novas, ${total.pending} pendentes`)
+  }
 
   const firstName = profile?.full_name?.split(' ')[0] || 'Usuário'
   const monthLabel = format(new Date(), "MMMM 'de' yyyy", { locale: ptBR })
@@ -121,6 +140,13 @@ export default function DashboardPage() {
           <p className="text-gray-400 text-sm capitalize">{monthLabel}</p>
         </div>
         <div className="flex items-center gap-2">
+          {connections.length > 0 && (
+            <button onClick={handleSyncAll} disabled={syncing}
+              className={`btn-ghost flex items-center gap-1.5 text-sm ${pending.length > 0 ? 'border-amber-500/50 text-amber-300' : ''}`}>
+              <RefreshCw size={14} className={syncing ? 'animate-spin' : ''}/>
+              Sincronizar{pending.length > 0 ? ` (${pending.length})` : ''}
+            </button>
+          )}
           <button onClick={() => navigate('/chat')} className="btn-primary flex items-center gap-2 text-sm">
             <Sparkles size={15}/> IA
           </button>
