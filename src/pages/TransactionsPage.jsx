@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import { format, subMonths, addMonths, parseISO, startOfWeek, isSameDay, isAfter, isBefore } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { Plus, Trash2, ChevronLeft, ChevronRight, Filter, Edit2, TrendingUp, TrendingDown, ArrowRightLeft, Sparkles, Activity } from 'lucide-react'
-import { useTransactions, useMonthRef, useBudgetItems, useBudgetCycle, useBills } from '../hooks/useData'
+import { useTransactions, useMonthRef, useBudgetItems, useBudgetCycle, useBills, useGoals } from '../hooks/useData'
 import { useAccounts } from '../hooks/usePluggy'
 import { addTransaction, deleteTransaction, updateTransaction } from '../lib/db'
 import { useAuth } from '../contexts/AuthContext'
@@ -55,7 +55,7 @@ const SOURCE_CHIP = {
 
 const EMPTY = { description: '', amount: '', type: 'expense', date: format(new Date(), 'yyyy-MM-dd'), category_id: '', notes: '', is_paid: true, payment_source: 'fixed_income' }
 
-function TxModal({ onClose, onSaved, initial, categories, userId, reservaSnapshot }) {
+function TxModal({ onClose, onSaved, initial, categories, userId, reservaSnapshot, accounts = [], goals = [] }) {
   const [form, setForm] = useState({ ...EMPTY, ...initial })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -80,6 +80,8 @@ function TxModal({ onClose, onSaved, initial, categories, userId, reservaSnapsho
       amount: parseFloat(form.amount),
       user_id: userId,
       category_id: form.category_id || null,
+      account_id: form.account_id || null,
+      goal_id: form.goal_id || null,
       budget_item_id: null,
     }
     const { error: err } = form.id ? await updateTransaction(form.id, payload) : await addTransaction(payload)
@@ -130,6 +132,22 @@ function TxModal({ onClose, onSaved, initial, categories, userId, reservaSnapsho
         </div>
 
         <div>
+          <label className="label">Conta (opcional)</label>
+          <select className="input" value={form.account_id || ''} onChange={e => set('account_id', e.target.value || null)}>
+            <option value="">— Sem conta —</option>
+            {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+          </select>
+        </div>
+
+        <div>
+          <label className="label">Vincular à meta (opcional)</label>
+          <select className="input" value={form.goal_id || ''} onChange={e => set('goal_id', e.target.value || null)}>
+            <option value="">— Sem meta —</option>
+            {goals.filter(g => !g.is_completed).map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+          </select>
+        </div>
+
+        <div>
           <label className="label">Fonte de pagamento *</label>
           <select className="input" value={form.payment_source} onChange={e => set('payment_source', e.target.value)}>
             {PAYMENT_SOURCE_ORDER.map(s => (
@@ -174,6 +192,7 @@ export default function TransactionsPage() {
   const { bills } = useBills(monthRef)
   const { user } = useAuth()
   const { accounts } = useAccounts()
+  const { goals } = useGoals()
   const [modal, setModal] = useState(null)
   const [filterType, setFilterType] = useState('all')
   const [filterAccount, setFilterAccount] = useState('all')
@@ -387,6 +406,8 @@ export default function TransactionsPage() {
           categories={categories}
           userId={user?.id}
           reservaSnapshot={reservaSnap}
+          accounts={accounts}
+          goals={goals}
           onClose={() => setModal(null)}
           onSaved={refetch}
         />
