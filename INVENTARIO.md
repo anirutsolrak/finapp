@@ -51,15 +51,12 @@ Arquivo: [src/pages/DashboardPage.jsx](src/pages/DashboardPage.jsx)
 | Card Reservado | DashboardPage:165-170 | `saldo_origem × reserva%` | Auto | ✅ | - |
 | Card Disponível pra gastar | DashboardPage:172-178 | `saldoDisponivel = saldo_origem × (1 − reserva%)` | Auto | ⚠️ | Depende do user manter `saldo_origem` correto |
 | Card Bills pagas no mês | DashboardPage:180-185 | Soma de `bills.is_paid` no bucket renda do mês corrente | Auto | ⚠️ | Mostra 6.6k mesmo com saldo de 800 — dois universos misturados visualmente |
-| Botão "Fechar semana" | DashboardPage:152 | Abre WeeklyCheckpointModal | Click toda segunda-feira (em tese) | 💤 | **0 registros no banco**. Conceito frouxo, ninguém usa |
 | Card Crédito (Limite/Usado/Disp/% comp.) | DashboardPage:~196-220 | StatCards do bucket crédito | Auto | ⚠️ | "Usado" mostra `gastoReal` (só tx); confunde porque saldo conta bills + tx |
 | Drawer "Ritmo · Reserva · Metas" | DashboardPage (final) | Trigger único na base que abre painel com 3 cards (semana corrente, reserva detalhada, metas resumidas) | Click no rodapé → painel slide-up (mobile) ou modal centralizado (desktop) | ✅ | Implementado recente, funciona bem |
 | Card Ritmo da semana (dentro drawer) | DashboardPage | gastou X / metaSemanal, status verde/amarelo/vermelho, barra | Auto | ✅ | Compara `gastoSemanaRenda` (seg→hoje, só bucket renda) com `metaSemanal` |
 | Card Reserva (dentro drawer) | DashboardPage | Disponível / Usado / Acumulada / Aporte | Auto | ✅ | - |
 | Card Metas resumido (dentro drawer) | DashboardPage | Top 3 metas com progresso + link "Ver todas" | Auto | ✅ | - |
 | Configure ciclo (CTA quando sem ciclo) | DashboardPage | Banner amber pedindo configurar | Aparece se `cycle === null` | ✅ | Linka pra `/budget` |
-| `checkpointChart` useMemo | DashboardPage:95-103 | Computa dados pro chart Previsto×Real | n/a | 💤 | Computado mas o **JSX que renderizava o BarChart foi removido**. Computação fica órfã — pode deletar |
-| Imports `BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend, Tooltip, ResponsiveContainer, Cell` | DashboardPage:8 | recharts | n/a | 💤 | Imports órfãos depois da remoção do chart |
 
 ---
 
@@ -93,15 +90,13 @@ Arquivo: [src/pages/BudgetPage.jsx](src/pages/BudgetPage.jsx)
 | Header com título + botões | BudgetPage:302-318 | Refresh, Configurar ciclo (settings icon), + Novo | Clicks | ✅ | - |
 | Botão Refresh | BudgetPage:308-310 | Refaz fetch de items/cycle/tx/bills | Click no ícone redondo | ✅ | Útil quando dados não atualizam sozinhos |
 | Botão Configurar ciclo | BudgetPage:311-313 | Abre CycleModal | Click | ✅ | - |
-| Tabs Renda/Crédito/Histórico | BudgetPage:321-335 | Troca o bucket exibido | Click | ⚠️ | Tab "Histórico" mostra checkpoints — mas estão zerados ⇒ vazio sempre |
+| Tabs Renda/Crédito | BudgetPage:321-335 | Troca o bucket exibido | Click | ✅ | - |
 | SnapshotCard (Renda ou Crédito) | BudgetPage:203-237 | Card com saldo origem, gasto real, disponível, % comprometido (crédito) ou média/meta (renda), linha extra com reserva | Auto | ⚠️ | Renda: mostra "Gasto real" (só tx) — não considera bills pagas. Confuso versus card de Bills no Dashboard |
 | Resumo da aba (Receita/Despesas/Balanço) | BudgetPage:351-364 | 3 mini-cards somando `planned_amount` por tipo | Auto | ✅ | - |
 | Lista de Receitas (planejado) | BudgetPage:382-395 | Lista income items do bucket atual | Auto | ✅ | - |
 | Lista de Despesas por categoria | BudgetPage:397-430 | Items agrupados por categoria, com badge `is_fixed`, dia de vencimento, edit/delete | Click | ✅ | - |
 | ItemModal (criar/editar item) | BudgetPage:19-121 | Form com categoria, payment_source, nome, valor planejado, dia de vencimento (se despesa), recorrência, notas, fixo | Botão + Novo ou Edit | ✅ | - |
 | CycleModal (Configurar ciclo) | BudgetPage:123-201 | Form com start_date, end_date, saldo_origem_income, saldo_origem_credit, reserva_pct | Click no Settings | ⚠️ | Strip de campos gerados está OK. Default `start_date` = primeiro do mês corrente — não bate com ciclo 15-15 |
-| Tab Histórico (fechamentos semanais) | BudgetPage:339-359 | Lista checkpoints do ciclo | Auto | 💤 | Nenhum checkpoint registrado. Fica sempre vazio |
-| `useCheckpoints(40)` | BudgetPage:259 | Hook fetcha 40 checkpoints | Auto | 💤 | Só serve pra alimentar a tab Histórico vazia |
 
 ---
 
@@ -170,7 +165,7 @@ Arquivo: [src/pages/ChatPage.jsx](src/pages/ChatPage.jsx) + [src/lib/claude.js](
 | Quick prompts | ChatPage:124-130, 405-414 | 5 botões com sugestões prontas | Click | ✅ | - |
 | Input + envio (Enter / Shift+Enter) | ChatPage:352-354, 416-438 | textarea autogrow, envia ao Enter | Tecla / botão | ✅ | - |
 | sendMessage (loop completo) | ChatPage:168-217 | salva user msg → buildSystemPrompt + getAIContext → sendToClaudeAPI → extractAction → render+save aiMsg | Auto | ✅ | - |
-| ActionCard (proposta de ação da IA) | ChatPage:46-97 | Renderiza ação detectada (add_transaction, add_goal, add_bill, update_budget, add_budget_items, record_checkpoint) com botões Aprovar/Ignorar | Click | ⚠️ | record_checkpoint depende de cycle + cria checkpoints (zerados no banco) |
+| ActionCard (proposta de ação da IA) | ChatPage:46-97 | Renderiza ação detectada (add_transaction, add_goal, add_bill, update_budget, add_budget_items) com botões Aprovar/Ignorar | Click | ✅ | - |
 | Mensagem com bubble + timestamp | ChatPage:99-122 | User vs assistente com avatar | Auto | ✅ | - |
 | Indicador "digitando" | ChatPage:11-19, 393-400 | TypingDot animado | Auto | ✅ | - |
 | Approve action (multiplos types) | ChatPage:219-350 | Lógica complexa pra cada tipo: mapeia campos da IA → schema do banco, valida, executa | Click "Aprovar" | ⚠️ | Mapeia muitos aliases ("description"→"name", "amount"→"value", etc.). Frágil se IA mudar formato |
@@ -222,7 +217,6 @@ Arquivo: [src/pages/LoginPage.jsx](src/pages/LoginPage.jsx)
 | Fetch profile automático | AuthContext.jsx:25-28 | Carrega `profiles` row ao logar | Auto | ✅ | - |
 | InstallPrompt (PWA) | components/InstallPrompt.jsx | Banner topo pra Android (beforeinstallprompt) ou iOS (instrução manual) | Auto, dismissable por sessão | ✅ | sessionStorage `pwa-install-dismissed` |
 | UpdatePrompt (PWA) | components/UpdatePrompt.jsx | Banner inferior quando há nova versão do SW | Click "Atualizar" | ✅ | Auto-checa a cada 1h + ao ficar visível |
-| WeeklyCheckpointModal | components/WeeklyCheckpointModal.jsx | Modal pra registrar saldo real semanal | Aberto pelo botão "Fechar semana" no Dashboard | 💤 | **0 registros no banco**. Conceito do "previsto" muda toda vez que tx é lançada — comparação real×previsto sem âncora |
 
 ---
 
@@ -233,13 +227,12 @@ Arquivo: [src/hooks/useData.js](src/hooks/useData.js)
 | Hook | O que faz | Status | Obs |
 |---|---|---|---|
 | `useMonthRef()` | State local de monthRef (default = mês corrente) | ✅ | Cada page tem o seu — não compartilhado |
-| `useDashboard(monthRef)` | Fetcha bills + goals + items + cycle + tx + checkpoints + subscribe realtime em 5 tabelas | ✅ | Útil mas pesado: 5 canais de realtime na mesma chamada |
+| `useDashboard(monthRef)` | Fetcha bills + goals + items + cycle + tx + subscribe realtime em 5 tabelas | ✅ | Útil mas pesado: 5 canais de realtime na mesma chamada |
 | `useTransactions(monthRef)` | Fetcha tx + realtime channel `tx` | ✅ | - |
 | `useBills(monthRef)` | Fetcha bills do mês + allBills + realtime | ✅ | - |
 | `useGoals()` | Fetcha goals (sem filtro mês) | ✅ | - |
 | `useBudgetItems()` | Fetcha items + categorias + realtime | ✅ | - |
 | `useBudgetCycle(monthRef)` | Fetcha cycle do mês + realtime | ✅ | - |
-| `useCheckpoints(limit)` | Fetcha checkpoints + realtime | 💤 | Tabela vazia, hook ainda chamado em BudgetPage |
 
 ---
 
@@ -249,9 +242,9 @@ Arquivo: [src/hooks/useData.js](src/hooks/useData.js)
 |---|---|---|---|---|
 | [src/lib/supabase.js](src/lib/supabase.js) | `supabase` | createClient com VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY | ✅ | - |
 | [src/lib/db.js](src/lib/db.js) | ~25 funções (getCategories, addTransaction, getBills, etc.) | API uniforme sobre Supabase | ✅ | Sem getMonthSummary, liveHealth, reseedBudgetCycle (limpos no f376701) |
-| [src/lib/budgetEngine.js](src/lib/budgetEngine.js) | `computeBucketSnapshot`, `computeReservaSnapshot`, `bucketOf`, `healthStatus`, `isoWeekBounds`, constantes | Cálculos puros do modelo | ✅ | `healthStatus` só usada por WeeklyCheckpointModal e ChatPage record_checkpoint (ambos 💤) |
+| [src/lib/budgetEngine.js](src/lib/budgetEngine.js) | `computeBucketSnapshot`, `computeReservaSnapshot`, `bucketOf`, constantes | Cálculos puros do modelo | ✅ | - |
 | [src/lib/goalPlanner.js](src/lib/goalPlanner.js) | `computeFreeBalance`, `computeGoalPlan`, AGGRESSIVENESS_* | freeBalance baseado só em planejamento | ⚠️ | Ignora saldo real do ciclo — sugestão de aporte pode ser descalibrada |
-| [src/lib/claude.js](src/lib/claude.js) | `buildSystemPrompt`, `sendToClaudeAPI`, `extractAction`, `cleanText` | Cliente da Edge Function + prompt builder | ✅ | Ainda passa `lastCheckpoints` pro contexto (vazio sempre) |
+| [src/lib/claude.js](src/lib/claude.js) | `buildSystemPrompt`, `sendToClaudeAPI`, `extractAction`, `cleanText` | Cliente da Edge Function + prompt builder | ✅ | - |
 | [src/lib/todo.js](src/lib/todo.js) | `getTodoItems`, `markTodoImported` | Acesso ao schema `todo` (Supabase schema separado) | ✅ | Schema externo do app de lista |
 
 ---
@@ -303,8 +296,8 @@ SELECT id, name, type, icon, sort_order FROM categories ORDER BY type, sort_orde
 
 ## Dead code (candidato a remover)
 
-5. **WeeklyCheckpointModal + tab Histórico do Planejamento + record_checkpoint da IA + useCheckpoints + healthStatus + chart Previsto×Real** — fluxo completo de checkpoint nunca foi adotado (0 registros). Removendo zera ~300 linhas de superfície.
-6. **`checkpointChart` useMemo + imports recharts (BarChart, etc.) em DashboardPage** — computação órfã depois que removemos o card.
+5. ~~**WeeklyCheckpointModal + tab Histórico do Planejamento + record_checkpoint da IA + useCheckpoints + healthStatus + chart Previsto×Real**~~ — ✅ resolvido na Onda 1 (2026-05-07).
+6. ~~**`checkpointChart` useMemo + imports recharts (BarChart, etc.) em DashboardPage**~~ — ✅ resolvido na Onda 1 (2026-05-07).
 
 ## Vínculos quebrados conceitualmente
 
@@ -315,3 +308,11 @@ SELECT id, name, type, icon, sort_order FROM categories ORDER BY type, sort_orde
 ## Auditoria de dados (proposta)
 
 10. **CSV NuBank vs tx no app** — comparar pra detectar tx faltando, valores divergentes, tx no app sem correspondente no extrato.
+
+---
+
+# Histórico de execução
+
+| Data | Onda | Mudança |
+|---|---|---|
+| 2026-05-07 | 1 — Limpeza | Removido fluxo WeeklyCheckpoint completo (modal, chart Previsto×Real, tab Histórico, record_checkpoint da IA, healthStatus, isoWeekBounds, useCheckpoints). Tabela `weekly_checkpoints` preservada no DB. ~300 linhas removidas. |
