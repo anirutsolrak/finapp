@@ -1,13 +1,11 @@
 import { useState, useMemo } from 'react'
 import { format, differenceInDays, parseISO, startOfWeek, isBefore, isAfter } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { TrendingUp, AlertCircle, Target, ArrowRight, Sparkles, Settings, Clock, Wallet, CreditCard, CalendarCheck, Activity, PiggyBank, Lock, Receipt, X } from 'lucide-react'
+import { TrendingUp, AlertCircle, Target, ArrowRight, Sparkles, Settings, Clock, Wallet, CreditCard, Activity, PiggyBank, Lock, Receipt, X } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useDashboard, useMonthRef } from '../hooks/useData'
 import { useAuth } from '../contexts/AuthContext'
-import { Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from 'recharts'
 import { computeBucketSnapshot, computeReservaSnapshot, bucketOf } from '../lib/budgetEngine'
-import WeeklyCheckpointModal from '../components/WeeklyCheckpointModal'
 
 const fmt = (v) => {
   if (typeof v === 'string') return v
@@ -56,13 +54,12 @@ export default function DashboardPage() {
   const { monthRef } = useMonthRef()
   const { data, loading, refetch } = useDashboard(monthRef)
   const navigate = useNavigate()
-  const [checkpointOpen, setCheckpointOpen] = useState(false)
   const [drawerOpen, setDrawerOpen] = useState(false)
 
   const firstName = profile?.full_name?.split(' ')[0] || 'Usuário'
   const monthLabel = format(new Date(), "MMMM 'de' yyyy", { locale: ptBR })
 
-  const { bills = [], goals = [], budgetItems = [], cycle = null, transactions = [], checkpoints = [] } = data || {}
+  const { bills = [], goals = [], budgetItems = [], cycle = null, transactions = [] } = data || {}
 
   const incomeSnap = useMemo(() => computeBucketSnapshot({ bucket: 'income', cycle, items: budgetItems, transactions, bills }), [cycle, budgetItems, transactions, bills])
   const creditSnap = useMemo(() => computeBucketSnapshot({ bucket: 'credit', cycle, items: budgetItems, transactions, bills }), [cycle, budgetItems, transactions, bills])
@@ -91,16 +88,6 @@ export default function DashboardPage() {
   }, [transactions])
   const semanaPct = incomeSnap.metaSemanal > 0 ? (gastoSemanaRenda / incomeSnap.metaSemanal) * 100 : 0
   const semanaStatus = semanaPct > 100 ? 'red' : semanaPct >= 80 ? 'yellow' : 'green'
-
-  const checkpointChart = useMemo(() => {
-    const last = [...(checkpoints || [])].reverse().slice(-8)
-    return last.map(cp => ({
-      label: `${cp.week_start.slice(5)}`,
-      Previsto: Number(cp.saldo_previsto),
-      Real: Number(cp.saldo_real),
-      status: cp.status,
-    }))
-  }, [checkpoints])
 
   const upcomingBills = bills.filter(b => !b.is_paid)
 
@@ -149,9 +136,6 @@ export default function DashboardPage() {
       <div>
         <div className="flex items-center justify-between mb-2">
           <p className="section-title flex items-center gap-2"><Wallet size={12}/> Renda</p>
-          <button onClick={() => setCheckpointOpen(true)} className="text-xs text-emerald-400 flex items-center gap-1 hover:text-emerald-300">
-            <CalendarCheck size={12}/> Fechar semana
-          </button>
         </div>
         <div className="grid grid-cols-2 gap-3">
           <StatCard
@@ -214,38 +198,6 @@ export default function DashboardPage() {
             Configurar <ArrowRight size={12}/>
           </button>
         </div>
-      )}
-
-      {/* Gráfico Previsto vs Real */}
-      {checkpointChart.length > 0 && (
-        <div className="card">
-          <p className="section-title flex items-center gap-2"><Activity size={12}/> Previsto × Real (últimas semanas)</p>
-          <ResponsiveContainer width="100%" height={180}>
-            <BarChart data={checkpointChart} margin={{ top: 5, right: 5, bottom: 5, left: -15 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#374151"/>
-              <XAxis dataKey="label" tick={{ fill: '#9ca3af', fontSize: 10 }} axisLine={{ stroke: '#374151' }}/>
-              <YAxis tick={{ fill: '#9ca3af', fontSize: 10 }} axisLine={{ stroke: '#374151' }}/>
-              <Tooltip formatter={v => fmt(v)} contentStyle={{ background: '#111827', border: '1px solid #374151', borderRadius: 8, color: '#f3f4f6' }}/>
-              <Legend wrapperStyle={{ fontSize: 11 }}/>
-              <Bar dataKey="Previsto" fill="#6b7280"/>
-              <Bar dataKey="Real">
-                {checkpointChart.map((d, i) => <Cell key={i} fill={HEALTH[d.status]}/>)}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      )}
-
-      {checkpointOpen && (
-        <WeeklyCheckpointModal
-          cycle={cycle}
-          items={budgetItems}
-          transactions={transactions}
-          bills={bills}
-          userId={user?.id}
-          onClose={() => setCheckpointOpen(false)}
-          onSaved={refetch}
-        />
       )}
 
       {/* ── Bottom trigger (único): abre drawer com Ritmo / Reserva / Metas ── */}
