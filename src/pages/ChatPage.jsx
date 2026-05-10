@@ -3,9 +3,7 @@ import { format } from 'date-fns'
 import { Send, Plus, Loader2, Bot, User, CheckCircle, Edit2, Trash2, Sparkles } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { sendToClaudeAPI, buildSystemPrompt, extractAction, cleanText } from '../lib/claude'
-import { getAIContext, saveChatMessage, getChatMessages, clearChat, addTransaction, upsertBill, upsertGoal, upsertBudgetItem, addCheckpoint, getBudgetCycle } from '../lib/db'
-import { healthStatus, isoWeekBounds, computeBucketSnapshot } from '../lib/budgetEngine'
-import { subDays } from 'date-fns'
+import { getAIContext, saveChatMessage, getChatMessages, clearChat, addTransaction, upsertBill, upsertGoal, upsertBudgetItem } from '../lib/db'
 import { computeGoalPlan, AGGRESSIVENESS_PCT } from '../lib/goalPlanner'
 
 function TypingDot() {
@@ -45,7 +43,7 @@ function renderValue(v) {
 
 function ActionCard({ action, onApprove, onDismiss, approved }) {
   if (!action) return null
-  const typeLabels = { add_transaction: 'Lançamento', add_goal: 'Meta', add_bill: 'Conta', update_budget: 'Orçamento', add_budget_items: 'Itens de Orçamento', record_checkpoint: 'Fechar Semana' }
+  const typeLabels = { add_transaction: 'Lançamento', add_goal: 'Meta', add_bill: 'Conta', update_budget: 'Orçamento', add_budget_items: 'Itens de Orçamento' }
 
   // Normaliza: items array vira lista legível
   const items = action.data?.items || (action.data && !action.data.items ? [action.data] : [])
@@ -314,30 +312,6 @@ export default function ChatPage() {
         for (const item of items) check(await upsertGoal(toGoal(item)))
       } else if (type === 'update_budget' || type === 'add_budget_items') {
         for (const item of items) check(await upsertBudgetItem(toBudgetItem(item)))
-      } else if (type === 'record_checkpoint') {
-        const ctx = await getAIContext()
-        const monthRef = format(new Date(), 'yyyy-MM')
-        const cycle = await getBudgetCycle(monthRef)
-        if (!cycle) throw new Error('Nenhum ciclo configurado. Configure o ciclo em /budget antes de fechar a semana.')
-        for (const item of items) {
-          const bucket = item.bucket === 'credit' ? 'credit' : 'income'
-          const bounds = item.week_start && item.week_end
-            ? { week_start: item.week_start, week_end: item.week_end }
-            : isoWeekBounds(subDays(new Date(), 7))
-          const snap = computeBucketSnapshot({ bucket, cycle, items: ctx.budgetItems || [], transactions: ctx.transactions || [], bills: ctx.bills || [] })
-          const saldoReal = parseFloat(item.saldo_real || item.amount || 0)
-          check(await addCheckpoint({
-            user_id: user.id,
-            cycle_id: cycle.id,
-            week_start: bounds.week_start,
-            week_end: bounds.week_end,
-            bucket,
-            saldo_previsto: snap.saldoDisponivel,
-            saldo_real: saldoReal,
-            status: healthStatus(saldoReal, snap.saldoDisponivel),
-            note: item.note || null,
-          }))
-        }
       } else {
         // Tipo desconhecido: tenta salvar como transação
         for (const item of items) check(await addTransaction(toTransaction(item)))
