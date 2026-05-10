@@ -1,4 +1,4 @@
-import { differenceInCalendarDays, format, startOfWeek, endOfWeek, parseISO, isBefore } from 'date-fns'
+import { differenceInCalendarDays, format, startOfWeek, parseISO, isBefore } from 'date-fns'
 
 export const PAYMENT_SOURCE_LABELS = {
   credit: 'Crédito',
@@ -87,16 +87,6 @@ export function computeBucketSnapshot({ bucket, cycle, items = [], transactions 
   return { saldoOrigem, reserva, planejado, gastoReal, committed, saidaSinceCutoff, saldoReal, saldoDisponivel, diasRestantes, mediaDiaria, metaSemanal, pct }
 }
 
-export function healthStatus(real, previsto) {
-  const p = Number(previsto) || 0
-  const r = Number(real) || 0
-  if (p <= 0) return 'yellow'
-  const diff = (r - p) / p
-  if (diff >= 0.05) return 'green'
-  if (diff <= -0.05) return 'red'
-  return 'yellow'
-}
-
 // Snapshot da reserva: saldo carregado do ciclo anterior + aporte deste ciclo − usado neste ciclo.
 // Nunca retorna disponivel < 0 (validamos no lançamento para impedir).
 export function computeReservaSnapshot({ cycle, transactions = [] }) {
@@ -112,9 +102,3 @@ export function computeReservaSnapshot({ cycle, transactions = [] }) {
   return { acumulada, aporte, usado, disponivel, total }
 }
 
-export function isoWeekBounds(date = new Date()) {
-  return {
-    week_start: format(startOfWeek(date, { weekStartsOn: 1 }), 'yyyy-MM-dd'),
-    week_end: format(endOfWeek(date, { weekStartsOn: 1 }), 'yyyy-MM-dd'),
-  }
-}
