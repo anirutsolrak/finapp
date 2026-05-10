@@ -14,15 +14,14 @@ export function useDashboard(monthRef) {
 
   const load = useCallback(async () => {
     setLoading(true)
-    const [{ data: bills }, { data: goals }, { data: items }, cycle, { data: txs }, { data: checkpoints }] = await Promise.all([
+    const [{ data: bills }, { data: goals }, { data: items }, cycle, { data: txs }] = await Promise.all([
       db.getBills(monthRef),
       db.getGoals(),
       db.getBudgetItems(),
       db.getBudgetCycle(monthRef),
       db.getTransactions(monthRef),
-      db.getCheckpoints(null, 8),
     ])
-    setData({ bills, goals, budgetItems: items, cycle, transactions: txs, checkpoints: checkpoints || [] })
+    setData({ bills, goals, budgetItems: items, cycle, transactions: txs })
     setLoading(false)
   }, [monthRef])
 
@@ -35,7 +34,6 @@ export function useDashboard(monthRef) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'bills' }, load)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'budget_items' }, load)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'budget_cycles' }, load)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'weekly_checkpoints' }, load)
       .subscribe()
     return () => supabase.removeChannel(ch)
   }, [load])
@@ -149,23 +147,3 @@ export function useBudgetCycle(monthRef) {
   return { cycle, loading, refetch: load }
 }
 
-export function useCheckpoints(limit = 20) {
-  const [checkpoints, setCheckpoints] = useState([])
-  const [loading, setLoading] = useState(true)
-
-  const load = useCallback(async () => {
-    setLoading(true)
-    const { data } = await db.getCheckpoints(null, limit)
-    setCheckpoints(data || [])
-    setLoading(false)
-  }, [limit])
-
-  useEffect(() => { load() }, [load])
-
-  useEffect(() => {
-    const ch = supabase.channel('checkpoints').on('postgres_changes', { event: '*', schema: 'public', table: 'weekly_checkpoints' }, load).subscribe()
-    return () => supabase.removeChannel(ch)
-  }, [load])
-
-  return { checkpoints, loading, refetch: load }
-}
