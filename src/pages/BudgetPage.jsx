@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback } from 'react'
 import { format } from 'date-fns'
-import { Plus, Edit2, Trash2, Lock, TrendingUp, TrendingDown, Settings, RefreshCw, Wallet, CreditCard, History, CheckCircle2, AlertTriangle } from 'lucide-react'
-import { useBudgetItems, useBudgetCycle, useTransactions, useCheckpoints, useMonthRef, useBills } from '../hooks/useData'
+import { Plus, Edit2, Trash2, Lock, TrendingUp, TrendingDown, Settings, RefreshCw, Wallet, CreditCard } from 'lucide-react'
+import { useBudgetItems, useBudgetCycle, useTransactions, useMonthRef, useBills } from '../hooks/useData'
 import { upsertBudgetItem, deleteBudgetItem, upsertBudgetCycle } from '../lib/db'
 import { useAuth } from '../contexts/AuthContext'
 import {
@@ -236,27 +236,12 @@ function SnapshotCard({ snapshot, bucket, reservaSnapshot }) {
   )
 }
 
-function StatusBadge({ status }) {
-  const cfg = {
-    green: { bg: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30', icon: CheckCircle2, label: 'Economia' },
-    yellow: { bg: 'bg-amber-500/15 text-amber-300 border-amber-500/30', icon: AlertTriangle, label: 'Na meta' },
-    red: { bg: 'bg-red-500/15 text-red-300 border-red-500/30', icon: AlertTriangle, label: 'Estouro' },
-  }[status] || { bg: 'bg-gray-700 text-gray-400', icon: AlertTriangle, label: status }
-  const Icon = cfg.icon
-  return (
-    <span className={`badge border ${cfg.bg} flex items-center gap-1 text-xs`}>
-      <Icon size={11}/> {cfg.label}
-    </span>
-  )
-}
-
 export default function BudgetPage() {
   const { monthRef } = useMonthRef()
   const { items, categories, loading, refetch } = useBudgetItems()
   const { cycle, refetch: refetchCycle } = useBudgetCycle(monthRef)
   const { transactions, refetch: refetchTx } = useTransactions(monthRef)
   const { bills, refetch: refetchBills } = useBills(monthRef)
-  const { checkpoints } = useCheckpoints(40)
   const { user } = useAuth()
 
   const [tab, setTab] = useState('income')
@@ -318,11 +303,10 @@ export default function BudgetPage() {
       </div>
 
       {/* Tabs */}
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-2 gap-2">
         {[
           { k: 'income',  label: 'Renda',    icon: Wallet },
           { k: 'credit',  label: 'Crédito',  icon: CreditCard },
-          { k: 'history', label: 'Histórico', icon: History },
         ].map(({ k, label, icon: Icon }) => (
           <button
             key={k}
@@ -334,29 +318,7 @@ export default function BudgetPage() {
         ))}
       </div>
 
-      {tab !== 'history' && <SnapshotCard snapshot={activeSnapshot} bucket={tab} reservaSnapshot={tab === 'income' ? reservaSnapshot : null}/>}
-
-      {tab === 'history' && (
-        <div className="space-y-2">
-          <p className="section-title flex items-center gap-2"><History size={12}/> Fechamentos semanais</p>
-          {checkpoints.length === 0 && (
-            <div className="card text-center py-8">
-              <p className="text-gray-500 text-sm">Nenhum checkpoint registrado ainda.</p>
-              <p className="text-xs text-gray-600 mt-1">Use "Fechar semana" no Dashboard toda segunda-feira.</p>
-            </div>
-          )}
-          {checkpoints.map(cp => (
-            <div key={cp.id} className="card flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-white">{cp.week_start} → {cp.week_end}</p>
-                <p className="text-xs text-gray-500">{cp.bucket === 'credit' ? '💳 Crédito' : '💰 Renda'} · previsto {fmt(cp.saldo_previsto)} · real {fmt(cp.saldo_real)}</p>
-                {cp.note && <p className="text-xs text-gray-600 mt-1 italic">"{cp.note}"</p>}
-              </div>
-              <StatusBadge status={cp.status}/>
-            </div>
-          ))}
-        </div>
-      )}
+      <SnapshotCard snapshot={activeSnapshot} bucket={tab} reservaSnapshot={tab === 'income' ? reservaSnapshot : null}/>
 
       {tab !== 'history' && (
         <>
