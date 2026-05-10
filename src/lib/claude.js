@@ -6,7 +6,7 @@ const EDGE_FN_URL = 'https://vzbswcoogdarlzqstumy.supabase.co/functions/v1/claud
 const SUPABASE_ANON_KEY = 'sb_publishable_ynzrEH34nzVwEMp0m_7BZg_8ZZDB9yg'
 
 export function buildSystemPrompt(context, userName) {
-  const { monthRef, budgetItems, transactions, goals, upcomingBills, freeBalance = 0, cycle, incomeSnapshot, creditSnapshot, reservaSnapshot, lastCheckpoints = [] } = context
+  const { monthRef, budgetItems, transactions, goals, upcomingBills, freeBalance = 0, cycle, incomeSnapshot, creditSnapshot, reservaSnapshot } = context
   const totalBudget = (budgetItems || []).reduce((a, i) => a + Number(i.planned_amount), 0)
   const totalSpent = (transactions || []).filter(t => t.type === 'expense').reduce((a, t) => a + Number(t.amount), 0)
   const fixedItems = (budgetItems || []).filter(i => i.is_fixed).map(i => `${i.name}: R$${i.planned_amount}`).join(', ')
@@ -36,9 +36,6 @@ ${incomeSnapshot ? `- Renda: saldo atual R$${Number(incomeSnapshot.saldoOrigem).
 ${creditSnapshot ? `- Crédito: limite R$${Number(creditSnapshot.saldoOrigem).toFixed(2)} | usado (tx) R$${Number(creditSnapshot.gastoReal).toFixed(2)} | disponível R$${Number(creditSnapshot.saldoDisponivel).toFixed(2)}` : '- Crédito: sem limite configurado'}
 ${reservaSnapshot ? `- Reserva: acumulada R$${Number(reservaSnapshot.acumulada).toFixed(2)} | aporte do mês R$${Number(reservaSnapshot.aporte).toFixed(2)} | usado R$${Number(reservaSnapshot.usado).toFixed(2)} | disponível R$${Number(reservaSnapshot.disponivel).toFixed(2)}` : '- Reserva: sem saldo'}
 ${cycle ? `- Ciclo: ${cycle.start_date} → ${cycle.end_date} · reserva ${cycle.reserva_pct || 0}%` : ''}
-
-## ÚLTIMOS CHECKPOINTS SEMANAIS
-${lastCheckpoints.slice(0, 4).map(c => `- ${c.week_start}→${c.week_end} [${c.bucket}] previsto R$${Number(c.saldo_previsto).toFixed(2)} · real R$${Number(c.saldo_real).toFixed(2)} · ${c.status}${c.note ? ` · "${c.note}"` : ''}`).join('\n') || '- Nenhum registrado ainda.'}
 
 ## SALDO LIVRE PARA METAS
 - Saldo livre (receita - gastos fixos): R$${Number(freeBalance).toFixed(2)}
@@ -80,16 +77,9 @@ ${(upcomingBills || []).map(b => `- ${b.name}: R$${b.amount} vence em ${b.due_da
 
 Para UM item:
 {
-  "type": "add_transaction" | "add_goal" | "add_bill" | "update_budget" | "record_checkpoint",
+  "type": "add_transaction" | "add_goal" | "add_bill" | "update_budget",
   "data": { "description": "...", "amount": 100, "type": "expense", "payment_source": "fixed_income" },
   "description": "Resumo legível da ação"
-}
-
-Para fechar a semana (checkpoint):
-{
-  "type": "record_checkpoint",
-  "data": { "bucket": "income" | "credit" | "reserve", "saldo_real": 3200, "week_start": "2026-04-06", "note": "opcional" },
-  "description": "Fecha a semana com saldo real informado"
 }
 
 Exemplo de meta (use aggressiveness, não monthly_contribution):
@@ -107,7 +97,7 @@ Para MÚLTIPLOS itens do mesmo tipo, use "items" como array:
 }
 
 7. Fale sempre em português brasileiro, de forma amigável e direta.
-8. Use os snapshots de Renda/Crédito/Reserva e os checkpoints recentes para embasar recomendações sobre ritmo de gasto, ajuste de meta semanal e atingimento de metas.`
+8. Use os snapshots de Renda/Crédito/Reserva para embasar recomendações sobre ritmo de gasto, ajuste de meta semanal e atingimento de metas.`
 }
 
 export async function sendToClaudeAPI(messages, systemPrompt) {
