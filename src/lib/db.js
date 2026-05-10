@@ -139,27 +139,16 @@ export const computeRolloverReserva = async (monthRef) => {
   return snap.disponivel
 }
 
-// ─── WEEKLY CHECKPOINTS ──────────────────────────────────────────────────────
-export const getCheckpoints = (userId, limit = 20) =>
-  supabase.from('weekly_checkpoints').select('*').order('week_start', { ascending: false }).limit(limit)
-
-export const addCheckpoint = (cp) =>
-  supabase.from('weekly_checkpoints').insert(cp).select().single()
-
-export const deleteCheckpoint = (id) =>
-  supabase.from('weekly_checkpoints').delete().eq('id', id)
-
 // ─── CONTEXT SNAPSHOT FOR AI ─────────────────────────────────────────────────
 export const getAIContext = async () => {
   const monthRef = format(new Date(), 'yyyy-MM')
-  const [{ data: items }, { data: txs }, { data: goals }, { data: upcoming }, { data: monthBills }, cycle, { data: checkpoints }] = await Promise.all([
+  const [{ data: items }, { data: txs }, { data: goals }, { data: upcoming }, { data: monthBills }, cycle] = await Promise.all([
     getBudgetItems(),
     getTransactions(monthRef),
     getGoals(),
     getUpcomingBills(10),
     getBills(monthRef),
     getBudgetCycle(monthRef),
-    getCheckpoints(null, 4),
   ])
   const freeBalance = computeFreeBalance(items || [])
   const incomeSnapshot = computeBucketSnapshot({ bucket: 'income', cycle, items: items || [], transactions: txs || [], bills: monthBills || [] })
@@ -177,6 +166,5 @@ export const getAIContext = async () => {
     incomeSnapshot,
     creditSnapshot,
     reservaSnapshot,
-    lastCheckpoints: checkpoints || [],
   }
 }
