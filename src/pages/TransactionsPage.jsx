@@ -45,6 +45,14 @@ function StatusDot({ spent, budget, label }) {
 
 const TYPE_LABELS = { income: 'Receita', expense: 'Despesa', investment: 'Investimento', transfer: 'Transferência' }
 const TYPE_COLORS = { income: 'chip-income', expense: 'chip-expense', investment: 'chip-investment', transfer: 'badge bg-blue-500/20 text-blue-400' }
+const CATEGORY_TYPE_LABELS = {
+  income: 'Receita',
+  essential: 'Essencial',
+  variable: 'Variável',
+  installment: 'Parcela',
+  investment: 'Investimento',
+  reserve: 'Reserva',
+}
 const SOURCE_CHIP = {
   fixed_income: 'badge bg-emerald-500/15 text-emerald-300',
   variable_income: 'badge bg-teal-500/15 text-teal-300',
@@ -124,7 +132,11 @@ function TxModal({ onClose, onSaved, initial, categories, userId, reservaSnapsho
           <label className="label">Categoria</label>
           <select className="input" value={form.category_id} onChange={e => set('category_id', e.target.value)}>
             <option value="">Selecionar...</option>
-            {categories.map(c => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
+            {categories.map(c => (
+              <option key={c.id} value={c.id}>
+                [{CATEGORY_TYPE_LABELS[c.type] || '—'}] {c.icon} {c.name}
+              </option>
+            ))}
           </select>
         </div>
 
