@@ -50,9 +50,9 @@ function BillAlert({ bill }) {
 }
 
 export default function DashboardPage() {
-  const { profile, user } = useAuth()
+  const { profile } = useAuth()
   const { monthRef } = useMonthRef()
-  const { data, loading, refetch } = useDashboard(monthRef)
+  const { data, loading } = useDashboard(monthRef)
   const navigate = useNavigate()
   const [drawerOpen, setDrawerOpen] = useState(false)
 
