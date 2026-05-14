@@ -35,6 +35,14 @@ export const getTransactions = (monthRef) => {
   return q
 }
 
+export const getTransactionsByRange = (startDate, endDate) =>
+  supabase
+    .from('transactions')
+    .select('*, categories(*), budget_items(name)')
+    .gte('date', startDate)
+    .lte('date', endDate)
+    .order('date', { ascending: false })
+
 const withMonthRef = (data) => {
   if (!data.month_ref && data.date) return { ...data, month_ref: String(data.date).slice(0, 7) }
   return data

@@ -62,6 +62,53 @@ export function useTransactions(monthRef) {
   return { transactions, loading, refetch: load }
 }
 
+export function useTransactionsByCycle(startDate, endDate) {
+  const [transactions, setTransactions] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  const load = useCallback(async () => {
+    if (!startDate || !endDate) {
+      setTransactions([])
+      setLoading(false)
+      return
+    }
+    setLoading(true)
+    const { data } = await db.getTransactionsByRange(startDate, endDate)
+    setTransactions(data || [])
+    setLoading(false)
+  }, [startDate, endDate])
+
+  useEffect(() => { load() }, [load])
+
+  useEffect(() => {
+    const ch = supabase.channel('tx-cycle').on('postgres_changes', { event: '*', schema: 'public', table: 'transactions' }, load).subscribe()
+    return () => supabase.removeChannel(ch)
+  }, [load])
+
+  return { transactions, loading, refetch: load }
+}
+
+export function useCycles() {
+  const [cycles, setCycles] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    const { data } = await supabase.from('budget_cycles').select('*').order('start_date', { ascending: false })
+    setCycles(data || [])
+    setLoading(false)
+  }, [])
+
+  useEffect(() => { load() }, [load])
+
+  useEffect(() => {
+    const ch = supabase.channel('cycles-list').on('postgres_changes', { event: '*', schema: 'public', table: 'budget_cycles' }, load).subscribe()
+    return () => supabase.removeChannel(ch)
+  }, [load])
+
+  return { cycles, loading, refetch: load }
+}
+
 export function useBills(monthRef) {
   const [bills, setBills] = useState([])
   const [allBills, setAllBills] = useState([])
