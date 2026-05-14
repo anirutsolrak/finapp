@@ -6,13 +6,10 @@ const EDGE_FN_URL = 'https://vzbswcoogdarlzqstumy.supabase.co/functions/v1/claud
 const SUPABASE_ANON_KEY = 'sb_publishable_ynzrEH34nzVwEMp0m_7BZg_8ZZDB9yg'
 
 export function buildSystemPrompt(context, userName) {
-  const { monthRef, budgetItems, transactions, goals, upcomingBills, freeBalance = 0, cycle, incomeSnapshot, creditSnapshot, reservaSnapshot } = context
+  const { monthRef, budgetItems, transactions, goals, upcomingBills, cycle, incomeSnapshot, creditSnapshot, reservaSnapshot } = context
   const totalBudget = (budgetItems || []).reduce((a, i) => a + Number(i.planned_amount), 0)
   const totalSpent = (transactions || []).filter(t => t.type === 'expense').reduce((a, t) => a + Number(t.amount), 0)
   const fixedItems = (budgetItems || []).filter(i => i.is_fixed).map(i => `${i.name}: R$${i.planned_amount}`).join(', ')
-  const committedMonthly = (goals || [])
-    .filter(g => !g.is_completed)
-    .reduce((a, g) => a + Number(g.monthly_contribution || 0), 0)
 
   return `Você é o assistente financeiro pessoal de ${userName || 'usuário'} e sua família.
 Hoje é ${format(new Date(), "d 'de' MMMM 'de' yyyy", { locale: ptBR })}, mês de referência: ${monthRef}.
@@ -37,15 +34,6 @@ ${creditSnapshot ? `- Crédito: limite R$${Number(creditSnapshot.saldoOrigem).to
 ${reservaSnapshot ? `- Reserva: acumulada R$${Number(reservaSnapshot.acumulada).toFixed(2)} | aporte do mês R$${Number(reservaSnapshot.aporte).toFixed(2)} | usado R$${Number(reservaSnapshot.usado).toFixed(2)} | disponível R$${Number(reservaSnapshot.disponivel).toFixed(2)}` : '- Reserva: sem saldo'}
 ${cycle ? `- Ciclo: ${cycle.start_date} → ${cycle.end_date} · reserva ${cycle.reserva_pct || 0}%` : ''}
 
-## SALDO LIVRE PARA METAS
-- Saldo livre (receita - gastos fixos): R$${Number(freeBalance).toFixed(2)}
-- Comprometido por metas ativas (mensal): R$${committedMonthly.toFixed(2)}
-- Folga mensal restante: R$${Math.max(Number(freeBalance) - committedMonthly, 0).toFixed(2)}
-
-Para criar uma meta, escolha UMA tag de agressividade (consome % do saldo livre por mês):
-- very_high (15%), high (10%), medium (7%), low (4%), very_low (2%)
-O app calcula automaticamente monthly_contribution, total_months e target_date a partir da tag — NUNCA sugira esses campos manualmente.
-
 ## ITENS FIXOS (NUNCA PODEM SER ALTERADOS OU REMOVIDOS):
 ${fixedItems || 'Nenhum'}
 
@@ -57,9 +45,7 @@ ${(transactions || []).slice(0, 20).map(t => `- ${t.date} | ${t.description}: R$
 
 ## METAS ATIVAS:
 ${(goals || []).filter(g => !g.is_completed).map(g => {
-  const tag = g.aggressiveness ? ` [${g.aggressiveness}]` : ''
-  const dots = g.total_months ? ` | progresso: ${g.months_completed || 0}/${g.total_months} meses` : ''
-  return `- ${g.name}${tag}: R$${g.current_amount}/${g.target_amount} (R$${g.monthly_contribution}/mês)${dots}`
+  return `- ${g.name}: R$${g.current_amount}/${g.target_amount} (prioridade ${g.priority || 1})`
 }).join('\n') || 'Nenhuma meta.'}
 
 ## LEMBRETES A VENCER (próximos 10 dias):
@@ -69,7 +55,7 @@ ${(upcomingBills || []).map(b => `- ${b.name}: R$${b.amount} vence em ${b.due_da
 1. NUNCA sugira alterar, remover ou reduzir valores de itens marcados como [FIXO].
 2. Ao sugerir redistribuição de orçamento para uma meta, use apenas o saldo disponível de itens variáveis.
 3. Quando o usuário relatar um gasto ou intenção de compra, faça perguntas de clarificação se necessário (valor, categoria, prazo).
-4. Para metas: sempre use \`aggressiveness\` (very_high | high | medium | low | very_low) em vez de \`monthly_contribution\` manual. Se as metas ativas já consomem >100% do saldo livre, alerte o usuário antes de criar outra.
+4. Metas funcionam por **vínculo com transações**: o usuário lança uma \`transfer\` ou \`expense\` com \`goal_id=X\` pra somar/subtrair do saldo da meta. O app NÃO calcula automaticamente quanto guardar por mês. Sugira o valor-alvo da meta; o usuário decide quando e quanto guardar.
 5. **payment_source é OBRIGATÓRIO** em add_transaction e add_budget_items (valores: "credit" | "fixed_income" | "variable_income" | "reserve"). Gastos no cartão de crédito = "credit"; pagos com salário/renda fixa = "fixed_income"; freelas/extras = "variable_income"; imprevistos/gastos não planejados que devem sair da reserva acumulada = "reserve". Em add_budget_items, NÃO use "reserve" (planejamento cobre apenas renda e crédito — a reserva é consumida direto via transação). Se o usuário não deixar claro, pergunte antes de emitir a ACTION.
 
    **Reserva**: o usuário tem um bucket de reserva que acumula mês a mês (acumulada + aporte do mês − usado = disponível). Quando ele disser "salvar na reserva", "tirar da reserva", "pagar com a reserva", "usar reserva" ou descrever um imprevisto que não deve afetar a média diária/semanal da renda, use payment_source: "reserve". Gastos na reserva NÃO entram no ritmo de gasto diário/semanal da renda. A reserva nunca pode ficar negativa — se o valor solicitado exceder o disponível, alerte antes de emitir a ACTION. Para AUMENTAR a reserva ("salvar na reserva", "guardar X na reserva"), isso é feito ajustando o % de aporte do ciclo na aba Planejamento (não via add_transaction) — oriente o usuário quando ele pedir isso.
@@ -82,11 +68,11 @@ Para UM item:
   "description": "Resumo legível da ação"
 }
 
-Exemplo de meta (use aggressiveness, não monthly_contribution):
+Exemplo de meta:
 {
   "type": "add_goal",
-  "data": { "name": "Placa de vídeo", "target_amount": 3500, "current_amount": 0, "aggressiveness": "high", "priority": 2 },
-  "description": "Meta: Placa de vídeo em ritmo agressivo (10% do saldo livre)"
+  "data": { "name": "Placa de vídeo", "target_amount": 3500, "current_amount": 0, "priority": 2 },
+  "description": "Meta: Placa de vídeo (R$ 3500 alvo)"
 }
 
 Para MÚLTIPLOS itens do mesmo tipo, use "items" como array:

@@ -1,6 +1,5 @@
 import { supabase } from './supabase'
 import { format, subMonths } from 'date-fns'
-import { computeFreeBalance } from './goalPlanner'
 import { computeBucketSnapshot, computeReservaSnapshot } from './budgetEngine'
 
 // ─── CATEGORIES ─────────────────────────────────────────────────────────────
@@ -158,7 +157,6 @@ export const getAIContext = async () => {
     getBills(monthRef),
     getBudgetCycle(monthRef),
   ])
-  const freeBalance = computeFreeBalance(items || [])
   const incomeSnapshot = computeBucketSnapshot({ bucket: 'income', cycle, items: items || [], transactions: txs || [], bills: monthBills || [] })
   const creditSnapshot = computeBucketSnapshot({ bucket: 'credit', cycle, items: items || [], transactions: txs || [], bills: monthBills || [] })
   const reservaSnapshot = computeReservaSnapshot({ cycle, transactions: txs || [] })
@@ -169,7 +167,6 @@ export const getAIContext = async () => {
     goals,
     upcomingBills: upcoming,
     bills: monthBills,
-    freeBalance,
     cycle,
     incomeSnapshot,
     creditSnapshot,
