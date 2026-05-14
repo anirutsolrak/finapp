@@ -1,60 +1,39 @@
 import { useState, useMemo } from 'react'
-import { Plus, Trash2, Edit2, Target, Lock, CheckCircle2, Sparkles } from 'lucide-react'
-import { useGoals, useBudgetItems } from '../hooks/useData'
+import { Plus, Trash2, Edit2, Target, Lock, CheckCircle2, Moon } from 'lucide-react'
+import { useGoals, useGoalLinkedTransactions, useCycles, useTransactionsByCycle } from '../hooks/useData'
 import { upsertGoal, deleteGoal } from '../lib/db'
 import { useAuth } from '../contexts/AuthContext'
-import {
-  AGGRESSIVENESS_LABELS,
-  AGGRESSIVENESS_ORDER,
-  AGGRESSIVENESS_PCT,
-  computeFreeBalance,
-  computeGoalPlan,
-} from '../lib/goalPlanner'
 
 const EMPTY = {
   name: '',
   description: '',
   target_amount: '',
   current_amount: '0',
-  aggressiveness: 'medium',
   is_fixed: false,
   priority: 1,
   category: '',
 }
 
-const fmtBRL = (v) => `R$ ${Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-
-function GoalModal({ initial, onClose, onSaved, userId, freeBalance }) {
+function GoalModal({ initial, onClose, onSaved, userId }) {
   const [form, setForm] = useState(() => {
-    if (initial?.id) return { ...EMPTY, ...initial, aggressiveness: initial.aggressiveness || 'medium' }
+    if (initial?.id) return { ...EMPTY, ...initial }
     return EMPTY
   })
   const [saving, setSaving] = useState(false)
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
-  const plan = useMemo(() => {
-    const target = parseFloat(form.target_amount)
-    if (!target || target <= 0) return null
-    return computeGoalPlan({
-      targetAmount: target,
-      currentAmount: parseFloat(form.current_amount) || 0,
-      aggressiveness: form.aggressiveness,
-      freeBalance,
-    })
-  }, [form.target_amount, form.current_amount, form.aggressiveness, freeBalance])
-
   async function save() {
-    if (!form.name || !form.target_amount || !plan) return
+    if (!form.name || !form.target_amount) return
     setSaving(true)
     const payload = {
-      ...form,
+      ...(form.id ? { id: form.id } : {}),
+      name: form.name,
+      description: form.description,
       target_amount: parseFloat(form.target_amount),
       current_amount: parseFloat(form.current_amount) || 0,
-      monthly_contribution: plan.monthly_contribution,
-      target_date: plan.target_date,
-      total_months: plan.total_months,
-      months_completed: form.id ? (form.months_completed ?? 0) : 0,
-      ai_computed_at: new Date().toISOString(),
+      is_fixed: form.is_fixed,
+      priority: form.priority,
+      category: form.category,
       user_id: userId,
     }
     await upsertGoal(payload)
@@ -84,48 +63,12 @@ function GoalModal({ initial, onClose, onSaved, userId, freeBalance }) {
             <input className="input" type="number" step="0.01" placeholder="0,00" value={form.target_amount} onChange={e => set('target_amount', e.target.value)} />
           </div>
           <div>
-            <label className="label">Já guardado (R$)</label>
+            <label className="label" title="Quanto você já tinha guardado pra essa meta antes de começar a vincular tx no app. Depois de criada, o saldo é atualizado automaticamente pelas tx vinculadas.">
+              Valor inicial já guardado (R$)
+            </label>
             <input className="input" type="number" step="0.01" placeholder="0,00" value={form.current_amount} onChange={e => set('current_amount', e.target.value)} />
           </div>
         </div>
-
-        <div>
-          <label className="label flex items-center gap-1"><Sparkles size={11} className="text-emerald-400"/> Ritmo de agressividade</label>
-          <select className="input" value={form.aggressiveness} onChange={e => set('aggressiveness', e.target.value)}>
-            {AGGRESSIVENESS_ORDER.map(k => (
-              <option key={k} value={k}>{AGGRESSIVENESS_LABELS[k]}</option>
-            ))}
-          </select>
-          <p className="text-xs text-gray-500 mt-1">
-            Saldo livre disponível (receita − fixos): <span className="text-emerald-400 font-medium">{fmtBRL(freeBalance)}</span>
-          </p>
-        </div>
-
-        {plan && plan.total_months > 0 && (
-          <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3 space-y-1">
-            <p className="text-sm text-emerald-300 font-medium flex items-center gap-1">
-              <Sparkles size={12}/> Plano calculado pela IA
-            </p>
-            <p className="text-xs text-gray-300">
-              Alocando <span className="font-semibold text-white">{(AGGRESSIVENESS_PCT[form.aggressiveness] * 100).toFixed(0)}%</span> do saldo livre você contribui{' '}
-              <span className="font-semibold text-emerald-400">{fmtBRL(plan.monthly_contribution)}/mês</span>{' '}
-              por <span className="font-semibold text-white">{plan.total_months} mês(es)</span>.
-            </p>
-            <p className="text-xs text-gray-500">Previsão de conclusão: <span className="text-gray-300">{plan.target_date}</span></p>
-          </div>
-        )}
-
-        {plan && plan.total_months === 0 && (
-          <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3">
-            <p className="text-xs text-emerald-300">✓ Meta já atingida! Você já possui o valor-alvo.</p>
-          </div>
-        )}
-
-        {freeBalance <= 0 && (
-          <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3">
-            <p className="text-xs text-amber-300">⚠ Saldo livre indisponível. Cadastre itens de receita e gastos fixos no Planejamento para ativar o cálculo automático.</p>
-          </div>
-        )}
 
         <div>
           <label className="label">Prioridade (1 = alta)</label>
@@ -139,51 +82,44 @@ function GoalModal({ initial, onClose, onSaved, userId, freeBalance }) {
 
         <div className="flex gap-2 pt-2">
           <button onClick={onClose} className="btn-ghost flex-1">Cancelar</button>
-          <button onClick={save} disabled={saving || !plan} className="btn-primary flex-1">{saving ? 'Salvando...' : 'Salvar'}</button>
+          <button onClick={save} disabled={saving || !form.name || !form.target_amount} className="btn-primary flex-1">{saving ? 'Salvando...' : 'Salvar'}</button>
         </div>
       </div>
     </div>
   )
 }
 
-function GoalDots({ goal, onMark }) {
-  const total = Number(goal.total_months) || 0
-  const done = Number(goal.months_completed) || 0
-  if (total <= 0) return null
-
-  return (
-    <div className="flex flex-wrap gap-1.5 mt-3">
-      {Array.from({ length: total }).map((_, i) => {
-        const isDone = i < done
-        const isNext = i === done
-        const disabled = !isDone && !isNext
-        return (
-          <button
-            key={i}
-            disabled={disabled}
-            onClick={() => onMark(goal, i)}
-            title={isDone ? `Mês ${i + 1} marcado — clique para desfazer` : isNext ? `Marcar mês ${i + 1}` : `Mês ${i + 1} ainda bloqueado`}
-            className={`w-3.5 h-3.5 rounded-full transition-all ${
-              isDone
-                ? 'bg-emerald-500 hover:bg-emerald-400'
-                : isNext
-                ? 'bg-gray-600 ring-2 ring-emerald-500/40 animate-pulse hover:bg-gray-500'
-                : 'bg-gray-800 opacity-40 cursor-not-allowed'
-            }`}
-          />
-        )
-      })}
-    </div>
-  )
-}
-
 export default function GoalsPage() {
   const { goals, loading, refetch } = useGoals()
-  const { items: budgetItems } = useBudgetItems()
+  const { transactions: linkedTxs } = useGoalLinkedTransactions()
+  const { cycles } = useCycles()
   const { user } = useAuth()
   const [modal, setModal] = useState(null)
 
-  const freeBalance = useMemo(() => computeFreeBalance(budgetItems), [budgetItems])
+  const currentCycle = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10)
+    return cycles.find(c => c.start_date <= today && today <= c.end_date) || null
+  }, [cycles])
+
+  const { transactions: cycleTxs } = useTransactionsByCycle(
+    currentCycle?.start_date,
+    currentCycle?.end_date,
+  )
+
+  function computeGoalAmount(goal) {
+    const initial = Number(goal.current_amount) || 0
+    let fromTx = 0
+    for (const t of linkedTxs) {
+      if (t.goal_id !== goal.id) continue
+      if (t.type === 'transfer') fromTx += Number(t.amount)
+      else if (t.type === 'expense') fromTx -= Number(t.amount)
+    }
+    return Math.max(initial + fromTx, 0)
+  }
+
+  function hasMovementInCycle(goalId) {
+    return cycleTxs.some(t => t.goal_id === goalId)
+  }
 
   async function handleDelete(goal) {
     if (goal.is_fixed && !confirm(`"${goal.name}" é uma meta fixa. Confirma exclusão?`)) return
@@ -197,46 +133,13 @@ export default function GoalsPage() {
     refetch()
   }
 
-  async function markDot(goal, index) {
-    const done = Number(goal.months_completed) || 0
-    const monthly = Number(goal.monthly_contribution) || 0
-    const target = Number(goal.target_amount) || 0
-    const current = Number(goal.current_amount) || 0
-
-    if (index === done) {
-      const newDone = done + 1
-      const newCurrent = Math.min(current + monthly, target)
-      const total = Number(goal.total_months) || 0
-      await upsertGoal({
-        ...goal,
-        months_completed: newDone,
-        current_amount: newCurrent,
-        is_completed: newDone >= total || newCurrent >= target,
-      })
-      refetch()
-    } else if (index === done - 1) {
-      const newDone = done - 1
-      const newCurrent = Math.max(current - monthly, 0)
-      await upsertGoal({
-        ...goal,
-        months_completed: newDone,
-        current_amount: newCurrent,
-        is_completed: false,
-      })
-      refetch()
-    }
-  }
-
   const active = goals.filter(g => !g.is_completed)
   const completed = goals.filter(g => g.is_completed)
 
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-white">Metas Financeiras</h1>
-          <p className="text-xs text-gray-500 mt-0.5">Saldo livre: <span className="text-emerald-400 font-medium">{fmtBRL(freeBalance)}</span></p>
-        </div>
+        <h1 className="text-xl font-bold text-white">Metas Financeiras</h1>
         <button onClick={() => setModal({})} className="btn-primary flex items-center gap-1.5 text-sm">
           <Plus size={16}/> Nova meta
         </button>
@@ -252,11 +155,10 @@ export default function GoalsPage() {
             </div>
           )}
           {active.map(g => {
-            const pct = Math.min((Number(g.current_amount) / Number(g.target_amount)) * 100, 100)
-            const total = Number(g.total_months) || 0
-            const done = Number(g.months_completed) || 0
-            const remainingMonths = Math.max(total - done, 0)
-            const tagLabel = g.aggressiveness ? AGGRESSIVENESS_LABELS[g.aggressiveness] : null
+            const currentAmount = computeGoalAmount(g)
+            const targetAmount = Number(g.target_amount) || 0
+            const pct = targetAmount > 0 ? Math.min((currentAmount / targetAmount) * 100, 100) : 0
+            const moved = hasMovementInCycle(g.id)
             return (
               <div key={g.id} className="card animate-in">
                 <div className="flex items-start justify-between mb-3">
@@ -265,7 +167,7 @@ export default function GoalsPage() {
                       <p className="font-semibold text-white">{g.name}</p>
                       {g.is_fixed && <Lock size={12} className="text-amber-400"/>}
                       <span className="badge bg-gray-700 text-gray-400 text-xs">P{g.priority}</span>
-                      {tagLabel && <span className="badge bg-emerald-500/15 text-emerald-300 text-xs">{tagLabel}</span>}
+                      {!moved && <Moon size={12} className="text-gray-500" title="Sem aporte neste ciclo"/>}
                     </div>
                     {g.description && <p className="text-xs text-gray-500 mt-0.5">{g.description}</p>}
                   </div>
@@ -281,20 +183,10 @@ export default function GoalsPage() {
                 </div>
 
                 <div className="flex justify-between text-xs text-gray-400">
-                  <span>{fmtBRL(g.current_amount)}</span>
+                  <span>R$ {currentAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                   <span className="font-medium text-white">{pct.toFixed(0)}%</span>
-                  <span>{fmtBRL(g.target_amount)}</span>
+                  <span>R$ {targetAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
-
-                <GoalDots goal={g} onMark={markDot}/>
-
-                {(g.monthly_contribution > 0 || g.target_date || total > 0) && (
-                  <div className="mt-3 pt-3 border-t border-gray-800 flex flex-wrap gap-3 text-xs text-gray-500">
-                    {g.monthly_contribution > 0 && <span>💰 {fmtBRL(g.monthly_contribution)}/mês</span>}
-                    {total > 0 && <span>📅 {done}/{total} meses {remainingMonths > 0 ? `(faltam ${remainingMonths})` : '(completo)'}</span>}
-                    {g.target_date && <span>🎯 Até {g.target_date}</span>}
-                  </div>
-                )}
               </div>
             )
           })}
@@ -320,7 +212,6 @@ export default function GoalsPage() {
         <GoalModal
           initial={modal}
           userId={user?.id}
-          freeBalance={freeBalance}
           onClose={() => setModal(null)}
           onSaved={refetch}
         />
