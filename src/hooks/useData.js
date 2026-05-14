@@ -194,3 +194,27 @@ export function useBudgetCycle(monthRef) {
   return { cycle, loading, refetch: load }
 }
 
+export function useGoalLinkedTransactions() {
+  const [transactions, setTransactions] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    const { data } = await supabase
+      .from('transactions')
+      .select('id, amount, type, date, goal_id')
+      .not('goal_id', 'is', null)
+    setTransactions(data || [])
+    setLoading(false)
+  }, [])
+
+  useEffect(() => { load() }, [load])
+
+  useEffect(() => {
+    const ch = supabase.channel('tx-goals').on('postgres_changes', { event: '*', schema: 'public', table: 'transactions' }, load).subscribe()
+    return () => supabase.removeChannel(ch)
+  }, [load])
+
+  return { transactions, loading, refetch: load }
+}
+
