@@ -54,7 +54,11 @@ function ItemModal({ initial, categories, defaultBucket, onClose, onSaved }) {
           <label className="label">Categoria</label>
           <select className="input" value={form.category_id} onChange={e => set('category_id', e.target.value)}>
             <option value="">Selecionar...</option>
-            {categories.map(c => <option key={c.id} value={c.id}>{c.icon} {c.name} — {TYPE_LABELS[c.type]}</option>)}
+            {categories.map(c => (
+              <option key={c.id} value={c.id}>
+                [{TYPE_LABELS[c.type] || '—'}] {c.icon} {c.name}
+              </option>
+            ))}
           </select>
         </div>
 
