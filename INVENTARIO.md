@@ -66,18 +66,19 @@ Arquivo: [src/pages/TransactionsPage.jsx](src/pages/TransactionsPage.jsx)
 
 | Feature | Onde | O que faz | Como usar | Status | Obs |
 |---|---|---|---|---|---|
-| Header + botão "Novo" | TransactionsPage:246-251 | Abre TxModal vazio | Click + Novo | ✅ | - |
-| Navegação por mês | TransactionsPage:178-179, 254-258 | `prevMonth/nextMonth` mudam `monthRef` | Setas em volta do label | ✅ | Usa `parseISO(monthRef + '-01')` pra evitar bug timezone |
-| Card "Ritmo de gasto" (diário/semanal) | TransactionsPage:261-276 | StatusDot + BudgetVsSpent (gastoHoje vs orçamento, gastoSemana vs metaSemanal) | Auto, só aparece se `isCurrentMonth && cycle` | ⚠️ | Filtra só `expense` no bucket `income` — ignora despesas de crédito/reserva (esse design é proposital mas pouco óbvio) |
-| Card Transferido + Investido | TransactionsPage:279-302 | Total transferido/investido no mês + breakdown por categoria | Auto, só aparece se houver | ✅ | - |
-| Card Consolidado (Entrou/Saiu/Líquido) | TransactionsPage:305-320 | Soma `income`, `expense`, mostra líquido | Auto | ⚠️ | Filtra por mês calendário (não pelo ciclo 15-15). Fica negativo absurdo se user só lança despesas |
-| Filtro por tipo | TransactionsPage:323-330 | Chips Todos/Receita/Despesa/Investimento/Transferência | Click | ✅ | - |
-| Lista de tx | TransactionsPage:333-367 | Cada tx com data, type chip, payment_source chip, categoria, badge "Pendente" se `!is_paid`, valor com sinal, edit/delete | Click no edit/delete | ✅ | - |
-| TxModal (criar/editar tx) | TransactionsPage:57-166 | Form com tipo (Receita/Despesa/Investimento/Transferência), descrição, valor, data, categoria, payment_source, notas, "Já pago/recebido" | Botão Novo ou Edit | ⚠️ | **Tipo "Receita" existe e funciona**, mas user esquece de lançar receitas. Não tem campo "Account" nem "Vincular meta" (era da frente Pluggy) |
-| Validação de reserva | TransactionsPage:67-75 | Bloqueia despesa em `reserve` se exceder disponível | Auto ao salvar | ✅ | - |
-| Aviso reserva no modal | TransactionsPage:138-142 | Mostra disponível da reserva quando seleciona `reserve` | Auto | ✅ | - |
-| Categorias no modal | TransactionsPage:124-128 | Select de `categories` da DB | Click | ⚠️ | Sem mostrar `type` da categoria — fácil escolher categoria errada (essencial vs variável vs receita) |
-| Imports `useCallback` (não em uso?) | n/a | - | - | n/a | - |
+| Header + botão "Novo" | TransactionsPage | Abre TxModal vazio | Click + Novo | ✅ | - |
+| Navegação por ciclo | TransactionsPage | Setas avançam/voltam entre `budget_cycles` (start_date → end_date) | Setas em volta do label | ✅ | Onda 2: substituiu navegação por mês calendário |
+| Empty state sem ciclo | TransactionsPage | Banner pedindo configurar ciclo se `cycles.length === 0` | Auto | ✅ | Onda 2 |
+| Card "Ritmo de gasto" (diário/semanal) | TransactionsPage | StatusDot + BudgetVsSpent (gastoHoje vs orçamento, gastoSemana vs metaSemanal) | Auto, só aparece se `isCurrentCycle && currentCycle` | ⚠️ | Filtra só `expense` no bucket `income` — ignora despesas de crédito/reserva (esse design é proposital mas pouco óbvio) |
+| Card Transferido + Investido | TransactionsPage | Total transferido/investido no ciclo + breakdown por categoria | Auto, só aparece se houver | ✅ | - |
+| Card Consolidado (Entrou/Saiu/Líquido) | TransactionsPage | Soma `income`, `expense`, mostra líquido do ciclo atual | Auto | ✅ | Onda 2: agora respeita o ciclo dinâmico |
+| Filtro por tipo | TransactionsPage | Chips Todos/Receita/Despesa/Investimento/Transferência | Click | ✅ | - |
+| Lista de tx | TransactionsPage | Cada tx com data, type chip, payment_source chip, categoria, badge "Pendente" se `!is_paid`, valor com sinal, edit/delete | Click no edit/delete | ✅ | - |
+| TxModal (criar/editar tx) | TransactionsPage | Form com tipo (Receita/Despesa/Investimento/Transferência), descrição, valor, data, categoria, payment_source, vincular meta, notas, "Já pago/recebido" | Botão Novo ou Edit | ⚠️ | **Tipo "Receita" existe e funciona**, mas user esquece de lançar receitas. Sem campo "Account" (era da frente Pluggy) |
+| Validação de reserva | TransactionsPage | Bloqueia despesa em `reserve` se exceder disponível | Auto ao salvar | ✅ | - |
+| Aviso reserva no modal | TransactionsPage | Mostra disponível da reserva quando seleciona `reserve` | Auto | ✅ | - |
+| Categorias no modal | TransactionsPage TxModal | Select de `categories` da DB | Click | ✅ | Mostra chip `[Tipo]` antes do nome. Onda 2 |
+| Campo "Vincular à meta" no TxModal | TransactionsPage TxModal | Select opcional pra vincular tx a uma meta (goal_id) | Modal Novo/Edit → select | ✅ | Onda 2 |
 
 ---
 
@@ -95,7 +96,7 @@ Arquivo: [src/pages/BudgetPage.jsx](src/pages/BudgetPage.jsx)
 | Resumo da aba (Receita/Despesas/Balanço) | BudgetPage:351-364 | 3 mini-cards somando `planned_amount` por tipo | Auto | ✅ | - |
 | Lista de Receitas (planejado) | BudgetPage:382-395 | Lista income items do bucket atual | Auto | ✅ | - |
 | Lista de Despesas por categoria | BudgetPage:397-430 | Items agrupados por categoria, com badge `is_fixed`, dia de vencimento, edit/delete | Click | ✅ | - |
-| ItemModal (criar/editar item) | BudgetPage:19-121 | Form com categoria, payment_source, nome, valor planejado, dia de vencimento (se despesa), recorrência, notas, fixo | Botão + Novo ou Edit | ✅ | - |
+| ItemModal (criar/editar item) | BudgetPage:19-121 | Form com categoria, payment_source, nome, valor planejado, dia de vencimento (se despesa), recorrência, notas, fixo | Botão + Novo ou Edit | ✅ | Onda 2: select de categoria mostra chip `[Tipo]` antes do nome |
 | CycleModal (Configurar ciclo) | BudgetPage:123-201 | Form com start_date, end_date, saldo_origem_income, saldo_origem_credit, reserva_pct | Click no Settings | ⚠️ | Strip de campos gerados está OK. Default `start_date` = primeiro do mês corrente — não bate com ciclo 15-15 |
 
 ---
@@ -124,14 +125,12 @@ Arquivo: [src/pages/GoalsPage.jsx](src/pages/GoalsPage.jsx)
 
 | Feature | Onde | O que faz | Como usar | Status | Obs |
 |---|---|---|---|---|---|
-| Header com saldo livre | GoalsPage:236-243 | Mostra freeBalance + botão Nova meta | Auto | ✅ | freeBalance vem de `computeFreeBalance(budgetItems)` — apenas planejamento, ignora saldo real |
-| GoalModal (criar/editar) | GoalsPage:27-147 | Form com nome, descrição, valor alvo, já guardado, agressividade (5 níveis), prioridade, fixa | Click + Nova | ⚠️ | `current_amount` é editável manual — não é derivado de tx vinculadas |
-| Plano calculado (preview) | GoalsPage:35-44, 104-122 | Mostra `monthly_contribution`, `total_months`, `target_date` baseado em `agressividade × freeBalance` | Auto ao preencher | ⚠️ | Se freeBalance ≤ 0 mostra warning amber. Mas freeBalance fica ruim quando user não cadastra income items no Planejamento |
-| Lista de metas ativas | GoalsPage:254-300 | Card por meta com nome, fixa, prioridade, agressividade, progresso, dots, mensal/meses/data alvo | Auto | ✅ | - |
-| GoalDots (marcar mês como pago) | GoalsPage:149-178 | Bolinha por mês — clicáveis em ordem | Click no próximo dot disponível | ⚠️ | Avança `months_completed` + soma `monthly_contribution` ao `current_amount`. **Não vincula tx real** |
-| markDot (avançar/voltar mês) | GoalsPage:200-228 | Lógica de avanço/retrocesso dos dots | Click | ⚠️ | Inconsistência: separar dinheiro pra meta na vida real (lançar transferência) **não** atualiza meta. User precisa clicar dot manualmente |
-| Toggle concluída + botão Reabrir | GoalsPage:195-198, 273, 309 | Marca/desmarca `is_completed` | Click | ✅ | - |
-| Lista de metas concluídas | GoalsPage:302-315 | Cards opacos com botão Reabrir | Auto | ✅ | - |
+| Header + botão Nova meta | GoalsPage:~206-211 | Mostra título + botão | Click | ✅ | Onda 2: removido "Saldo livre" do header |
+| GoalModal (criar/editar) | GoalsPage:~27-100 | Form com nome, descrição, target, valor inicial, prioridade, fixa | Click + Nova | ✅ | Onda 2: removido aggressiveness, plano IA, freeBalance |
+| Lista de metas ativas | GoalsPage:~230-280 | Card por meta com saldo derivado, barra, ícone silencioso | Auto | ✅ | Saldo = current_amount + SUM(tx vinculadas). Onda 2 |
+| Ícone "Sem aporte neste ciclo" | GoalsPage | Moon icon ao lado da meta se não houve tx vinculada no ciclo atual | Auto | ✅ | Onda 2 |
+| Toggle concluída + Reabrir | GoalsPage | Marca/desmarca is_completed | Click | ✅ | - |
+| Vínculo via goal_id em tx | TxModal | Tx do tipo `transfer` ou `expense` com goal_id alimenta saldo da meta | Lançar tx + selecionar meta | ✅ | Onda 2 |
 
 ---
 
@@ -243,7 +242,6 @@ Arquivo: [src/hooks/useData.js](src/hooks/useData.js)
 | [src/lib/supabase.js](src/lib/supabase.js) | `supabase` | createClient com VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY | ✅ | - |
 | [src/lib/db.js](src/lib/db.js) | ~25 funções (getCategories, addTransaction, getBills, etc.) | API uniforme sobre Supabase | ✅ | Sem getMonthSummary, liveHealth, reseedBudgetCycle (limpos no f376701) |
 | [src/lib/budgetEngine.js](src/lib/budgetEngine.js) | `computeBucketSnapshot`, `computeReservaSnapshot`, `bucketOf`, constantes | Cálculos puros do modelo | ✅ | - |
-| [src/lib/goalPlanner.js](src/lib/goalPlanner.js) | `computeFreeBalance`, `computeGoalPlan`, AGGRESSIVENESS_* | freeBalance baseado só em planejamento | ⚠️ | Ignora saldo real do ciclo — sugestão de aporte pode ser descalibrada |
 | [src/lib/claude.js](src/lib/claude.js) | `buildSystemPrompt`, `sendToClaudeAPI`, `extractAction`, `cleanText` | Cliente da Edge Function + prompt builder | ✅ | - |
 | [src/lib/todo.js](src/lib/todo.js) | `getTodoItems`, `markTodoImported` | Acesso ao schema `todo` (Supabase schema separado) | ✅ | Schema externo do app de lista |
 
@@ -290,9 +288,9 @@ SELECT id, name, type, icon, sort_order FROM categories ORDER BY type, sort_orde
 ## Coisas que funcionam mas são subutilizadas/confusas
 
 1. **Receita no TxModal** — feature existe, user esquece de lançar. Sem nudge, sem reminder. **Talvez resolva com:** dashboard mostrar "última receita lançada há X dias" ou checklist mensal.
-2. **categoria type no TxModal** — não mostra qual o tipo da categoria, fácil escolher "Variável" pra uma despesa essencial. **Talvez resolva com:** chip do type ao lado do nome no dropdown, ou agrupar por tipo.
-3. **Filtros por mês calendário em TransactionsPage** — não bate com ciclo 15-15. **Talvez resolva com:** toggle "Mês / Ciclo" ou trocar default pra ciclo.
-4. **freeBalance ignora saldo real** — `computeFreeBalance` usa só planejamento. **Talvez resolva com:** opção de usar saldo_origem.
+2. ~~**categoria type no TxModal**~~ — ✅ **Resolvido na Onda 2 (chip de type)**
+3. ~~**Filtros por mês calendário em TransactionsPage**~~ — ✅ **Resolvido na Onda 2 (navega por ciclo)**
+4. ~~**freeBalance ignora saldo real**~~ — ✅ **Resolvido na Onda 2 (modelo de Metas reformulado)**
 
 ## Dead code (candidato a remover)
 
@@ -301,7 +299,7 @@ SELECT id, name, type, icon, sort_order FROM categories ORDER BY type, sort_orde
 
 ## Vínculos quebrados conceitualmente
 
-7. **Meta vs transação** — separar dinheiro pra meta (lançar transferência) não atualiza meta. User precisa clicar dot manualmente. Se gastar o "separado" em outra coisa, meta segue achando que tá guardado.
+7. ~~**Meta vs transação**~~ — ✅ **Resolvido na Onda 2 (saldo derivado de tx vinculadas)**
 8. **Bills pagas no mês × Saldo atual** — visualmente parece "gastei 6.6k com só 800 em conta". Concepts diferentes em cards próximos.
 9. **payment_source só do tipo, não da conta** — não distingue NuBank crédito × PicPay crédito. PicPay tem 3 plásticos sob mesma fatura, app não vê.
 
@@ -316,3 +314,4 @@ SELECT id, name, type, icon, sort_order FROM categories ORDER BY type, sort_orde
 | Data | Onda | Mudança |
 |---|---|---|
 | 2026-05-07 | 1 — Limpeza | Removido fluxo WeeklyCheckpoint completo (modal, chart Previsto×Real, tab Histórico, record_checkpoint da IA, healthStatus, isoWeekBounds, useCheckpoints). Tabela `weekly_checkpoints` preservada no DB. ~300 linhas removidas. |
+| 2026-05-07 | 2 — Polimentos UX | Filtro por ciclo dinâmico em Lançamentos. Chip `[Tipo]` em categorias (TxModal+ItemModal). Metas reformuladas pra modelo "espelho honesto": saldo derivado de tx vinculadas via `goal_id`, sem agressividade/dots. `goalPlanner.js` deletado. Migration `migration_goal_link.sql` aplicada. Colunas órfãs em `goals` (aggressiveness etc.) preservadas pra rollback. |
