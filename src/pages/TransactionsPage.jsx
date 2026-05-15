@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { format, parseISO, startOfWeek, isAfter, isBefore } from 'date-fns'
 import { Plus, Trash2, ChevronLeft, ChevronRight, Edit2, TrendingUp, TrendingDown, ArrowRightLeft, Sparkles, Activity } from 'lucide-react'
-import { useBudgetItems, useTransactionsByCycle, useCycles, useBills, useGoals } from '../hooks/useData'
+import { useBudgetItems, useTransactionsByCycle, useCycles, useBills, useGoals, useAccounts } from '../hooks/useData'
 import { addTransaction, deleteTransaction, updateTransaction } from '../lib/db'
 import { useAuth } from '../contexts/AuthContext'
 import { PAYMENT_SOURCE_LABELS, PAYMENT_SOURCE_ORDER, computeBucketSnapshot, computeReservaSnapshot, bucketOf } from '../lib/budgetEngine'
@@ -59,9 +59,9 @@ const SOURCE_CHIP = {
   reserve: 'badge bg-cyan-500/15 text-cyan-300',
 }
 
-const EMPTY = { description: '', amount: '', type: 'expense', date: format(new Date(), 'yyyy-MM-dd'), category_id: '', notes: '', is_paid: true, payment_source: 'fixed_income', goal_id: '' }
+const EMPTY = { description: '', amount: '', type: 'expense', date: format(new Date(), 'yyyy-MM-dd'), category_id: '', notes: '', is_paid: true, payment_source: 'fixed_income', goal_id: '', account_id: '', from_account_id: '', to_account_id: '' }
 
-function TxModal({ onClose, onSaved, initial, categories, userId, reservaSnapshot, goals = [] }) {
+function TxModal({ onClose, onSaved, initial, categories, userId, reservaSnapshot, goals = [], accounts = [] }) {
   const [form, setForm] = useState({ ...EMPTY, ...initial })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -74,6 +74,7 @@ function TxModal({ onClose, onSaved, initial, categories, userId, reservaSnapsho
   async function save() {
     if (!form.description || !form.amount) return setError('Preencha descrição e valor.')
     if (!form.payment_source) return setError('Selecione a fonte de pagamento.')
+    if (form.type !== 'transfer' && !form.account_id) return setError('Selecione a conta.')
     if (form.payment_source === 'reserve' && form.type === 'expense') {
       const novo = parseFloat(form.amount)
       if (novo > reservaDisponivelPraLancamento) {
@@ -88,6 +89,9 @@ function TxModal({ onClose, onSaved, initial, categories, userId, reservaSnapsho
       category_id: form.category_id || null,
       budget_item_id: null,
       goal_id: form.goal_id || null,
+      account_id: form.account_id || null,
+      from_account_id: form.from_account_id || null,
+      to_account_id: form.to_account_id || null,
     }
     const { error: err } = form.id ? await updateTransaction(form.id, payload) : await addTransaction(payload)
     if (err) setError(err.message)
@@ -139,6 +143,28 @@ function TxModal({ onClose, onSaved, initial, categories, userId, reservaSnapsho
             ))}
           </select>
         </div>
+
+        {form.type !== 'transfer' && (
+          <div>
+            <label className="label">Conta *</label>
+            <select className="input" value={form.account_id || ''} onChange={e => {
+              const acc = accounts.find(a => a.id === e.target.value)
+              set('account_id', e.target.value)
+              // Auto-preenche payment_source com o default da conta
+              if (acc?.default_payment_source) set('payment_source', acc.default_payment_source)
+            }}>
+              <option value="">Selecionar...</option>
+              {accounts.map(a => (
+                <option key={a.id} value={a.id}>{a.name}</option>
+              ))}
+            </select>
+            {accounts.length === 0 && (
+              <p className="text-xs text-amber-400 mt-1">
+                Cadastre uma conta em Configurações → Contas antes de lançar.
+              </p>
+            )}
+          </div>
+        )}
 
         <div>
           <label className="label">Fonte de pagamento *</label>
@@ -214,6 +240,7 @@ export default function TransactionsPage() {
   const { items: budgetItems, categories } = useBudgetItems()
   const { bills } = useBills(currentCycle?.month_ref)
   const { goals } = useGoals()
+  const { accounts } = useAccounts()
   const { user } = useAuth()
   const [modal, setModal] = useState(null)
   const [filterType, setFilterType] = useState('all')
@@ -453,6 +480,7 @@ export default function TransactionsPage() {
           userId={user?.id}
           reservaSnapshot={reservaSnap}
           goals={goals}
+          accounts={accounts}
           onClose={() => setModal(null)}
           onSaved={refetch}
         />
