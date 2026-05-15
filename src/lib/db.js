@@ -173,3 +173,25 @@ export const getAIContext = async () => {
     reservaSnapshot,
   }
 }
+
+// ─── ACCOUNTS (Onda 3 — multi-conta) ────────────────────────────────────────
+export const getAccounts = () =>
+  supabase.from('accounts').select('*').eq('is_active', true).order('display_order').order('name')
+
+export const getAllAccounts = () =>
+  supabase.from('accounts').select('*').order('display_order').order('name')
+
+export const upsertAccount = (account) => {
+  if (account.id) {
+    return supabase
+      .from('accounts')
+      .update({ ...account, updated_at: new Date().toISOString() })
+      .eq('id', account.id)
+      .select()
+      .single()
+  }
+  return supabase.from('accounts').insert(account).select().single()
+}
+
+export const deactivateAccount = (id) =>
+  supabase.from('accounts').update({ is_active: false }).eq('id', id)

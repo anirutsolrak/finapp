@@ -218,3 +218,23 @@ export function useGoalLinkedTransactions() {
   return { transactions, loading, refetch: load }
 }
 
+export function useAccounts() {
+  const [accounts, setAccounts] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    const { data } = await db.getAccounts()
+    setAccounts(data || [])
+    setLoading(false)
+  }, [])
+
+  useEffect(() => { load() }, [load])
+
+  useEffect(() => {
+    const ch = supabase.channel('accounts').on('postgres_changes', { event: '*', schema: 'public', table: 'accounts' }, load).subscribe()
+    return () => supabase.removeChannel(ch)
+  }, [load])
+
+  return { accounts, loading, refetch: load }
+}
