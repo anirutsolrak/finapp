@@ -79,6 +79,10 @@ Arquivo: [src/pages/TransactionsPage.jsx](src/pages/TransactionsPage.jsx)
 | Aviso reserva no modal | TransactionsPage | Mostra disponível da reserva quando seleciona `reserve` | Auto | ✅ | - |
 | Categorias no modal | TransactionsPage TxModal | Select de `categories` da DB | Click | ✅ | Mostra chip `[Tipo]` antes do nome. Onda 2 |
 | Campo "Vincular à meta" no TxModal | TransactionsPage TxModal | Select opcional pra vincular tx a uma meta (goal_id) | Modal Novo/Edit → select | ✅ | Onda 2 |
+| Campo "Conta" no TxModal | TransactionsPage TxModal | Select obrigatório pra income/expense/investment; auto-preenche payment_source | Modal Novo/Edit → select | ✅ | Onda 3 |
+| Campos "De/Para" no TxModal (transfer) | TransactionsPage TxModal | 2 selects pra transferência entre contas próprias (from_account_id, to_account_id) | Tipo Transferência → 2 selects | ✅ | Onda 3 |
+| Filtro por conta na lista | TransactionsPage | Select que filtra tx por account_id (ou from/to em transfer) | Header de filtros | ✅ | Onda 3 |
+| Badge de conta na tx | TransactionsPage | Cada tx mostra nome da conta (ou "From → To" pra transfer) | Auto | ✅ | Onda 3 |
 
 ---
 
@@ -188,6 +192,9 @@ Arquivo: [src/pages/SettingsPage.jsx](src/pages/SettingsPage.jsx)
 | Card "Instalar PWA" (instruções) | SettingsPage:48-56 | Texto estático com passos | Leitura | ✅ | - |
 | Card Segurança (texto sobre Edge Function) | SettingsPage:59-62 | Disclaimer | Leitura | ✅ | - |
 | Salvar configurações | SettingsPage:64-67, 16-23 | UPDATE em `profiles` + refresh do contexto | Click | ✅ | - |
+| Seção "Contas" | SettingsPage | CRUD de contas (nome, tipo, subtype, default_payment_source) | Cards listando + botão Nova + Edit/Desativar | ✅ | Onda 3 |
+| AccountModal | SettingsPage | Modal pra criar/editar conta | Click + Nova ou Edit | ✅ | Onda 3 |
+| Botão "Desativar" conta | SettingsPage | Marca is_active=false (preserva FK das tx) | Click no ícone EyeOff | ✅ | Onda 3 — não deleta, só esconde |
 
 ---
 
@@ -232,6 +239,7 @@ Arquivo: [src/hooks/useData.js](src/hooks/useData.js)
 | `useGoals()` | Fetcha goals (sem filtro mês) | ✅ | - |
 | `useBudgetItems()` | Fetcha items + categorias + realtime | ✅ | - |
 | `useBudgetCycle(monthRef)` | Fetcha cycle do mês + realtime | ✅ | - |
+| `useAccounts()` | Fetcha accounts ativas + realtime channel `accounts` | ✅ | Onda 3 |
 
 ---
 
@@ -240,7 +248,7 @@ Arquivo: [src/hooks/useData.js](src/hooks/useData.js)
 | Arquivo | Exports principais | O que faz | Status | Obs |
 |---|---|---|---|---|
 | [src/lib/supabase.js](src/lib/supabase.js) | `supabase` | createClient com VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY | ✅ | - |
-| [src/lib/db.js](src/lib/db.js) | ~25 funções (getCategories, addTransaction, getBills, etc.) | API uniforme sobre Supabase | ✅ | Sem getMonthSummary, liveHealth, reseedBudgetCycle (limpos no f376701) |
+| [src/lib/db.js](src/lib/db.js) | ~25 funções (getCategories, addTransaction, getBills, etc.) + `getAccounts`, `getAllAccounts`, `upsertAccount`, `deactivateAccount` (Onda 3 — CRUD de contas) | API uniforme sobre Supabase | ✅ | Sem getMonthSummary, liveHealth, reseedBudgetCycle (limpos no f376701) |
 | [src/lib/budgetEngine.js](src/lib/budgetEngine.js) | `computeBucketSnapshot`, `computeReservaSnapshot`, `bucketOf`, constantes | Cálculos puros do modelo | ✅ | - |
 | [src/lib/claude.js](src/lib/claude.js) | `buildSystemPrompt`, `sendToClaudeAPI`, `extractAction`, `cleanText` | Cliente da Edge Function + prompt builder | ✅ | - |
 | [src/lib/todo.js](src/lib/todo.js) | `getTodoItems`, `markTodoImported` | Acesso ao schema `todo` (Supabase schema separado) | ✅ | Schema externo do app de lista |
@@ -301,7 +309,8 @@ SELECT id, name, type, icon, sort_order FROM categories ORDER BY type, sort_orde
 
 7. ~~**Meta vs transação**~~ — ✅ **Resolvido na Onda 2 (saldo derivado de tx vinculadas)**
 8. **Bills pagas no mês × Saldo atual** — visualmente parece "gastei 6.6k com só 800 em conta". Concepts diferentes em cards próximos.
-9. **payment_source só do tipo, não da conta** — não distingue NuBank crédito × PicPay crédito. PicPay tem 3 plásticos sob mesma fatura, app não vê.
+9. ~~**payment_source só do tipo, não da conta**~~ — ✅ **Resolvido na Onda 3 (account_id em tx)**
+9b. ~~**Multi-conta/multi-cartão sem distinção**~~ — ✅ **Resolvido na Onda 3**
 
 ## Auditoria de dados (proposta)
 
@@ -315,3 +324,4 @@ SELECT id, name, type, icon, sort_order FROM categories ORDER BY type, sort_orde
 |---|---|---|
 | 2026-05-07 | 1 — Limpeza | Removido fluxo WeeklyCheckpoint completo (modal, chart Previsto×Real, tab Histórico, record_checkpoint da IA, healthStatus, isoWeekBounds, useCheckpoints). Tabela `weekly_checkpoints` preservada no DB. ~300 linhas removidas. |
 | 2026-05-07 | 2 — Polimentos UX | Filtro por ciclo dinâmico em Lançamentos. Chip `[Tipo]` em categorias (TxModal+ItemModal). Metas reformuladas pra modelo "espelho honesto": saldo derivado de tx vinculadas via `goal_id`, sem agressividade/dots. `goalPlanner.js` deletado. Migration `migration_goal_link.sql` aplicada. Colunas órfãs em `goals` (aggressiveness etc.) preservadas pra rollback. |
+| 2026-05-14 | 3 — Multi-conta | Adicionada tabela `accounts` + colunas `account_id`/`from_account_id`/`to_account_id` em transactions. Seção Contas em /settings com CRUD. TxModal estendido (campo Conta pra income/expense/investment; De+Para pra transfer). Badge de conta + filtro por conta na lista de Lançamentos. Migrations aplicadas: backup_pre_onda3 (schema backup_2026_05_14), wipe_pre_onda3 (DELETE dos dados do user), accounts. Reset clean — usuário recadastrou tudo no novo ciclo. |
