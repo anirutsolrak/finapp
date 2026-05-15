@@ -75,6 +75,10 @@ function TxModal({ onClose, onSaved, initial, categories, userId, reservaSnapsho
     if (!form.description || !form.amount) return setError('Preencha descrição e valor.')
     if (!form.payment_source) return setError('Selecione a fonte de pagamento.')
     if (form.type !== 'transfer' && !form.account_id) return setError('Selecione a conta.')
+    if (form.type === 'transfer') {
+      if (!form.from_account_id || !form.to_account_id) return setError('Selecione a conta de origem e destino.')
+      if (form.from_account_id === form.to_account_id) return setError('Origem e destino devem ser diferentes.')
+    }
     if (form.payment_source === 'reserve' && form.type === 'expense') {
       const novo = parseFloat(form.amount)
       if (novo > reservaDisponivelPraLancamento) {
@@ -166,6 +170,29 @@ function TxModal({ onClose, onSaved, initial, categories, userId, reservaSnapsho
           </div>
         )}
 
+        {form.type === 'transfer' && (
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="label">De *</label>
+              <select className="input" value={form.from_account_id || ''} onChange={e => set('from_account_id', e.target.value)}>
+                <option value="">Selecionar...</option>
+                {accounts.map(a => (
+                  <option key={a.id} value={a.id} disabled={a.id === form.to_account_id}>{a.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="label">Para *</label>
+              <select className="input" value={form.to_account_id || ''} onChange={e => set('to_account_id', e.target.value)}>
+                <option value="">Selecionar...</option>
+                {accounts.map(a => (
+                  <option key={a.id} value={a.id} disabled={a.id === form.from_account_id}>{a.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        )}
+
         <div>
           <label className="label">Fonte de pagamento *</label>
           <select className="input" value={form.payment_source} onChange={e => set('payment_source', e.target.value)}>
@@ -244,6 +271,7 @@ export default function TransactionsPage() {
   const { user } = useAuth()
   const [modal, setModal] = useState(null)
   const [filterType, setFilterType] = useState('all')
+  const [filterAccount, setFilterAccount] = useState('all')
 
   // Navegação de ciclo (cycles está ordenado start_date DESC, então cycles[0] é o mais recente)
   const prevCycle = () => {
@@ -262,7 +290,13 @@ export default function TransactionsPage() {
     return currentCycle.start_date <= today && today <= currentCycle.end_date
   })()
 
-  const filtered = filterType === 'all' ? transactions : transactions.filter(t => t.type === filterType)
+  const filtered = transactions
+    .filter(t => filterType === 'all' || t.type === filterType)
+    .filter(t => {
+      if (filterAccount === 'all') return true
+      if (t.type === 'transfer') return t.from_account_id === filterAccount || t.to_account_id === filterAccount
+      return t.account_id === filterAccount
+    })
   const loading = cyclesLoading || txLoading
 
   const incomeSnap = useMemo(
@@ -434,6 +468,20 @@ export default function TransactionsPage() {
         ))}
       </div>
 
+      {accounts.length > 0 && (
+        <div className="flex gap-2 flex-wrap items-center">
+          <span className="text-xs text-gray-500">Conta:</span>
+          <select
+            className="bg-gray-800 border border-gray-700 rounded-xl px-3 py-1.5 text-xs text-gray-200"
+            value={filterAccount}
+            onChange={e => setFilterAccount(e.target.value)}
+          >
+            <option value="all">Todas</option>
+            {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+          </select>
+        </div>
+      )}
+
       {/* List */}
       {loading ? <div className="space-y-2">{[...Array(5)].map((_, i) => <div key={i} className="card h-16 animate-pulse bg-gray-800"/>)}</div> : (
         <div className="space-y-2">
@@ -455,6 +503,21 @@ export default function TransactionsPage() {
                       {PAYMENT_SOURCE_LABELS[tx.payment_source] || tx.payment_source}
                     </span>
                   )}
+                  {tx.type === 'transfer' && (tx.from_account_id || tx.to_account_id) && (() => {
+                    const from = accounts.find(a => a.id === tx.from_account_id)
+                    const to = accounts.find(a => a.id === tx.to_account_id)
+                    return (
+                      <span className="badge bg-blue-500/10 text-blue-300 text-[10px]">
+                        {from?.name || '?'} → {to?.name || '?'}
+                      </span>
+                    )
+                  })()}
+                  {tx.type !== 'transfer' && tx.account_id && (() => {
+                    const acc = accounts.find(a => a.id === tx.account_id)
+                    return acc ? (
+                      <span className="badge bg-gray-700 text-gray-300 text-[10px]">{acc.name}</span>
+                    ) : null
+                  })()}
                   {tx.categories && <span className="text-xs text-gray-500">{tx.categories.icon} {tx.categories.name}</span>}
                   {!tx.is_paid && <span className="badge bg-amber-500/20 text-amber-400">Pendente</span>}
                 </div>
