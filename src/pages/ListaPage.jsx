@@ -9,6 +9,7 @@ import { supabase } from '../lib/supabase'
 import { getTodoItems, markTodoImported } from '../lib/todo'
 import { addTransaction } from '../lib/db'
 import { useAuth } from '../contexts/AuthContext'
+import { useDateRange } from '../contexts/DateRangeContext'
 
 const fmt = (v) => `R$ ${Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
@@ -205,6 +206,7 @@ function ImportModal({ items, cycle, categories, userId, onClose, onDone }) {
 
 export default function ListaPage() {
   const { user } = useAuth()
+  const { range, cycles } = useDateRange()
   const [items, setItems] = useState([])
   const [categories, setCategories] = useState([])
   const [cycle, setCycle] = useState(null)
@@ -213,25 +215,29 @@ export default function ListaPage() {
   const [showModal, setShowModal] = useState(false)
   const [expandedNotes, setExpandedNotes] = useState(new Set())
 
-  const monthRef = format(new Date(), 'yyyy-MM')
-
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const [todoRes, catsRes, cycleRes] = await Promise.all([
+      const [todoRes, catsRes] = await Promise.all([
         getTodoItems(),
         supabase.from('categories').select('*').order('sort_order'),
-        supabase.from('budget_cycles').select('*').eq('month_ref', monthRef).maybeSingle(),
       ])
       setItems(todoRes.data || [])
       setCategories(catsRes.data || [])
-      setCycle(cycleRes.data || null)
     } finally {
       setLoading(false)
     }
-  }, [monthRef])
+  }, [])
 
   useEffect(() => { load() }, [load])
+
+  // Cycle deriva do range global (match exato com cycle existente).
+  useEffect(() => {
+    const c = (cycles || []).find(c =>
+      c.start_date === range?.startDate && c.end_date === range?.endDate
+    ) || null
+    setCycle(c)
+  }, [cycles, range])
 
   const grouped = useMemo(() => {
     const groups = {}
