@@ -81,6 +81,8 @@ Arquivo: [src/pages/TransactionsPage.jsx](src/pages/TransactionsPage.jsx)
 | Filtro por tipo | TransactionsPage | Chips Todos/Receita/Despesa/Investimento/Transferência | Click | ✅ | - |
 | Lista de tx | TransactionsPage | Cada tx com data, type chip, payment_source chip, categoria, badge "Pendente" se `!is_paid`, valor com sinal, edit/delete | Click no edit/delete | ✅ | - |
 | TxModal (criar/editar tx) | TransactionsPage | Form com tipo (Receita/Despesa/Investimento/Transferência), descrição, valor, data, categoria, payment_source, vincular meta, notas, "Já pago/recebido" | Botão Novo ou Edit | ⚠️ | **Tipo "Receita" existe e funciona**, mas user esquece de lançar receitas. Sem campo "Account" (era da frente Pluggy) |
+| Botão "Importar CSV" | TransactionsPage (Onda 6) | Abre CSVImporterModal pra importar extrato Conta Corrente ou fatura Cartão NuBank | Click no botão ao lado de "Novo" | ✅ | Onda 6 |
+| CSVImporterModal | components/CSVImporterModal.jsx | Multi-step: tipo+upload → preview com categorização IA + dedup → confirm em batch | Click "Importar" → file → tabela editável | ✅ | Onda 6 — usa nubankCSV.js + aiCategorize.js |
 | Validação de reserva | TransactionsPage | Bloqueia despesa em `reserve` se exceder disponível | Auto ao salvar | ✅ | - |
 | Aviso reserva no modal | TransactionsPage | Mostra disponível da reserva quando seleciona `reserve` | Auto | ✅ | - |
 | Categorias no modal | TransactionsPage TxModal | Select de `categories` da DB | Click | ✅ | Mostra chip `[Tipo]` antes do nome. Onda 2 |
@@ -320,7 +322,7 @@ SELECT id, name, type, icon, sort_order FROM categories ORDER BY type, sort_orde
 
 ## Auditoria de dados (proposta)
 
-10. **CSV NuBank vs tx no app** — comparar pra detectar tx faltando, valores divergentes, tx no app sem correspondente no extrato.
+10. ~~**CSV NuBank vs tx no app**~~ — ✅ **Resolvido na Onda 6 (CSV importer com dedup soft por date+amount+account_id)**
 
 ---
 
@@ -333,3 +335,4 @@ SELECT id, name, type, icon, sort_order FROM categories ORDER BY type, sort_orde
 | 2026-05-14 | 3 — Multi-conta | Adicionada tabela `accounts` + colunas `account_id`/`from_account_id`/`to_account_id` em transactions. Seção Contas em /settings com CRUD. TxModal estendido (campo Conta pra income/expense/investment; De+Para pra transfer). Badge de conta + filtro por conta na lista de Lançamentos. Migrations aplicadas: backup_pre_onda3 (schema backup_2026_05_14), wipe_pre_onda3 (DELETE dos dados do user), accounts. Reset clean — usuário recadastrou tudo no novo ciclo. |
 | 2026-05-15 | 4 — Dashboard multi-conta | Migration `migration_account_balances.sql` (opening_balance + credit_limit em accounts). `budgetEngine` ganha `computeAccountSnapshot` + `computeAccountsGroupSnapshot`. Hook `useAccountSnapshots`. Novo componente `AccountGroupDrawer`. Dashboard refatorado: 4 cards agregados (Bancos / Cartões / Empréstimos / Envelope) com drill-down em drawer lateral. AccountModal ganha campos saldo inicial e limite. Saldo passa a ser derivado de transactions; `cycle.saldo_origem_*` fica deprecated (mantido no schema). Migration `migration_family_share.sql` aplicada antes (RLS familiar permissiva nas 5 tabelas pra compartilhamento total Carlos + Gabriele). |
 | 2026-05-16 | 5 — Pagar fatura | Novo `PayBillsModal` (src/components/PayBillsModal.jsx). Cards Cartões/Empréstimos do Dashboard ganham botão 💵 que abre modal com select banco origem + lista contas-alvo (checkbox + valor pré-preenchido com dívida atual) + datepicker. Confirm cria 1 `transfer` por linha marcada (from=banco, to=cartão/loan). Zero migration, reusa snapshots da Onda 4. |
+| 2026-05-16 | 6 — CSV importer NuBank | Novo `src/lib/nubankCSV.js` (parseExtrato + parseFatura), `src/lib/aiCategorize.js` (categorizeBatch via Claude proxy), `src/components/CSVImporterModal.jsx` (multi-step upload→preview→confirm). TransactionsPage ganha botão "Importar". IA categoriza descrições em 1 chamada; dedup soft por date+amount+account_id (warning na linha, checkbox OFF). Sem migration, sem mudança na Edge Function. |
