@@ -3,7 +3,7 @@ import { format, differenceInDays, parseISO, startOfWeek, isBefore, isAfter } fr
 import { ptBR } from 'date-fns/locale'
 import { TrendingUp, AlertCircle, Target, ArrowRight, Sparkles, Settings, Clock, Wallet, CreditCard, Activity, PiggyBank, Lock, Receipt, X, Repeat, Mail, DollarSign } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-import { useDashboard, useMonthRef, useAccountSnapshots, useAccounts } from '../hooks/useData'
+import { useDashboard, useAccountSnapshots, useAccounts } from '../hooks/useData'
 import { useAuth } from '../contexts/AuthContext'
 import { computeBucketSnapshot, computeReservaSnapshot, bucketOf } from '../lib/budgetEngine'
 import AccountGroupDrawer from '../components/AccountGroupDrawer'
@@ -53,8 +53,7 @@ function BillAlert({ bill }) {
 
 export default function DashboardPage() {
   const { profile, user } = useAuth()
-  const { monthRef } = useMonthRef()
-  const { data, loading } = useDashboard(monthRef)
+  const { data, loading } = useDashboard()
   const navigate = useNavigate()
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [accountDrawerGroup, setAccountDrawerGroup] = useState(null)
@@ -101,6 +100,8 @@ export default function DashboardPage() {
     </div>
   )
 
+  // Drawer (Ritmo/Reserva/Metas) só aparece quando range bate exato com um cycle.
+  // Quando não bate, Metas continuam acessíveis via /goals.
   const showDock = !!cycle
 
   return (
