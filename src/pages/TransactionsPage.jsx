@@ -1,7 +1,8 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import { format, parseISO, startOfWeek, isAfter, isBefore } from 'date-fns'
-import { Plus, Trash2, ChevronLeft, ChevronRight, Edit2, TrendingUp, TrendingDown, ArrowRightLeft, Sparkles, Activity, Upload } from 'lucide-react'
-import { useBudgetItems, useTransactionsByCycle, useCycles, useBills, useGoals, useAccounts } from '../hooks/useData'
+import { Plus, Trash2, Edit2, TrendingUp, TrendingDown, ArrowRightLeft, Sparkles, Activity, Upload } from 'lucide-react'
+import { useBudgetItems, useTransactions, useBills, useGoals, useAccounts } from '../hooks/useData'
+import { useDateRange } from '../contexts/DateRangeContext'
 import { addTransaction, deleteTransaction, updateTransaction } from '../lib/db'
 import { useAuth } from '../contexts/AuthContext'
 import { PAYMENT_SOURCE_LABELS, PAYMENT_SOURCE_ORDER, computeBucketSnapshot, computeReservaSnapshot, bucketOf } from '../lib/budgetEngine'
@@ -247,26 +248,15 @@ function TxModal({ onClose, onSaved, initial, categories, userId, reservaSnapsho
 }
 
 export default function TransactionsPage() {
-  const { cycles, loading: cyclesLoading } = useCycles()
-  const [currentCycleId, setCurrentCycleId] = useState(null)
-
-  // Setar ciclo inicial = o que contém today, ou o mais recente
-  useEffect(() => {
-    if (cyclesLoading || cycles.length === 0 || currentCycleId) return
-    const today = format(new Date(), 'yyyy-MM-dd')
-    const containing = cycles.find(c => c.start_date <= today && today <= c.end_date)
-    setCurrentCycleId((containing || cycles[0]).id)
-  }, [cycles, cyclesLoading, currentCycleId])
-
-  const currentCycle = useMemo(() => cycles.find(c => c.id === currentCycleId), [cycles, currentCycleId])
-  const cycleIndex = useMemo(() => cycles.findIndex(c => c.id === currentCycleId), [cycles, currentCycleId])
-
-  const { transactions, loading: txLoading, refetch } = useTransactionsByCycle(
-    currentCycle?.start_date,
-    currentCycle?.end_date,
+  const { range, cycles } = useDateRange()
+  const currentCycle = useMemo(
+    () => cycles.find(c => c.start_date === range?.startDate && c.end_date === range?.endDate) || null,
+    [cycles, range]
   )
+
+  const { transactions, loading: txLoading, refetch } = useTransactions()
   const { items: budgetItems, categories } = useBudgetItems()
-  const { bills } = useBills(currentCycle?.month_ref)
+  const { bills } = useBills()
   const { goals } = useGoals()
   const { accounts } = useAccounts()
   const [importerOpen, setImporterOpen] = useState(false)
@@ -275,22 +265,8 @@ export default function TransactionsPage() {
   const [filterType, setFilterType] = useState('all')
   const [filterAccount, setFilterAccount] = useState('all')
 
-  // Navegação de ciclo (cycles está ordenado start_date DESC, então cycles[0] é o mais recente)
-  const prevCycle = () => {
-    if (cycleIndex < cycles.length - 1) setCurrentCycleId(cycles[cycleIndex + 1].id)
-  }
-  const nextCycle = () => {
-    if (cycleIndex > 0) setCurrentCycleId(cycles[cycleIndex - 1].id)
-  }
-
-  const cycleLabel = currentCycle
-    ? `${format(parseISO(currentCycle.start_date), 'dd/MM/yyyy')} → ${format(parseISO(currentCycle.end_date), 'dd/MM/yyyy')}`
-    : 'Sem ciclo'
-  const isCurrentCycle = (() => {
-    if (!currentCycle) return false
-    const today = format(new Date(), 'yyyy-MM-dd')
-    return currentCycle.start_date <= today && today <= currentCycle.end_date
-  })()
+  const cycleLabel = range?.label || 'Sem período'
+  const isCurrentCycle = !!currentCycle
 
   const filtered = transactions
     .filter(t => filterType === 'all' || t.type === filterType)
@@ -299,7 +275,7 @@ export default function TransactionsPage() {
       if (t.type === 'transfer') return t.from_account_id === filterAccount || t.to_account_id === filterAccount
       return t.account_id === filterAccount
     })
-  const loading = cyclesLoading || txLoading
+  const loading = !range || txLoading
 
   const incomeSnap = useMemo(
     () => computeBucketSnapshot({ bucket: 'income', cycle: currentCycle, items: budgetItems, transactions, bills }),
@@ -373,7 +349,7 @@ export default function TransactionsPage() {
         </div>
       </div>
 
-      {!cyclesLoading && cycles.length === 0 && (
+      {range && cycles.length === 0 && (
         <div className="card text-center py-8">
           <p className="text-sm text-gray-400">Nenhum ciclo configurado.</p>
           <p className="text-xs text-gray-500 mt-1">
@@ -384,23 +360,9 @@ export default function TransactionsPage() {
 
       {currentCycle && (
         <>
-      {/* Cycle nav */}
-      <div className="card flex items-center justify-between">
-        <button
-          onClick={prevCycle}
-          disabled={cycleIndex >= cycles.length - 1}
-          className="p-2 hover:text-emerald-400 text-gray-400 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-        >
-          <ChevronLeft size={18}/>
-        </button>
+      {/* Cycle label (sem nav — seletor global controla o período) */}
+      <div className="card flex items-center justify-center">
         <p className="font-semibold text-white">{cycleLabel}</p>
-        <button
-          onClick={nextCycle}
-          disabled={cycleIndex <= 0}
-          className="p-2 hover:text-emerald-400 text-gray-400 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-        >
-          <ChevronRight size={18}/>
-        </button>
       </div>
 
       {/* Bloco 1 — Orçamento vs Gasto (diário + semanal) */}
