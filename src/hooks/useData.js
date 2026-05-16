@@ -1,14 +1,8 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { format } from 'date-fns'
 import * as db from '../lib/db'
 import { supabase } from '../lib/supabase'
 import { computeAccountsGroupSnapshot } from '../lib/budgetEngine'
 import { useDateRange } from '../contexts/DateRangeContext'
-
-export function useMonthRef() {
-  const [monthRef, setMonthRef] = useState(format(new Date(), 'yyyy-MM'))
-  return { monthRef, setMonthRef }
-}
 
 export function useDashboard() {
   const { range, cycles } = useDateRange()
@@ -47,16 +41,18 @@ export function useDashboard() {
   return { data, loading, refetch: load }
 }
 
-export function useTransactions(monthRef) {
+export function useTransactions() {
+  const { range } = useDateRange()
   const [transactions, setTransactions] = useState([])
   const [loading, setLoading] = useState(true)
 
   const load = useCallback(async () => {
+    if (!range) return
     setLoading(true)
-    const { data } = await db.getTransactions(monthRef)
+    const { data } = await db.getTransactionsByRange(range.startDate, range.endDate)
     setTransactions(data || [])
     setLoading(false)
-  }, [monthRef])
+  }, [range])
 
   useEffect(() => { load() }, [load])
 
@@ -115,21 +111,23 @@ export function useCycles() {
   return { cycles, loading, refetch: load }
 }
 
-export function useBills(monthRef) {
+export function useBills() {
+  const { range } = useDateRange()
   const [bills, setBills] = useState([])
   const [allBills, setAllBills] = useState([])
   const [loading, setLoading] = useState(true)
 
   const load = useCallback(async () => {
+    if (!range) return
     setLoading(true)
-    const [{ data: monthly }, { data: all }] = await Promise.all([
-      db.getBills(monthRef),
+    const [{ data: ranged }, { data: all }] = await Promise.all([
+      db.getBillsByRange(range.startDate, range.endDate),
       db.getAllBills(),
     ])
-    setBills(monthly || [])
+    setBills(ranged || [])
     setAllBills(all || [])
     setLoading(false)
-  }, [monthRef])
+  }, [range])
 
   useEffect(() => { load() }, [load])
 
@@ -179,25 +177,12 @@ export function useBudgetItems() {
   return { items, categories, loading, refetch: load }
 }
 
-export function useBudgetCycle(monthRef) {
-  const [cycle, setCycle] = useState(null)
-  const [loading, setLoading] = useState(true)
-
-  const load = useCallback(async () => {
-    setLoading(true)
-    const c = await db.getBudgetCycle(monthRef)
-    setCycle(c || null)
-    setLoading(false)
-  }, [monthRef])
-
-  useEffect(() => { load() }, [load])
-
-  useEffect(() => {
-    const ch = supabase.channel('cycles').on('postgres_changes', { event: '*', schema: 'public', table: 'budget_cycles' }, load).subscribe()
-    return () => supabase.removeChannel(ch)
-  }, [load])
-
-  return { cycle, loading, refetch: load }
+export function useBudgetCycle() {
+  const { range, cycles } = useDateRange()
+  const cycle = (cycles || []).find(c =>
+    c.start_date === range?.startDate && c.end_date === range?.endDate
+  ) || null
+  return { cycle, loading: !range, refetch: () => {} }
 }
 
 export function useGoalLinkedTransactions() {
