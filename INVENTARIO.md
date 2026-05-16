@@ -47,11 +47,15 @@ Arquivo: [src/pages/DashboardPage.jsx](src/pages/DashboardPage.jsx)
 | Botão IA → /chat | DashboardPage:124 | Atalho pro chat | Click | ✅ | - |
 | Botão Configurações (mobile) | DashboardPage:127 | Atalho `/settings` no header (só `md:hidden`) | Click | ✅ | - |
 | Alerta "Contas próximas" | DashboardPage:134-146 | Lista até 3 bills não-pagas com indicador de urgência (vermelho ≤1d, âmbar ≤3d) | Aparece automático se houver bills pendentes | ✅ | Botão "Ver todas" linka pra `/bills` |
-| Card Saldo atual | DashboardPage:157-163 | Mostra `cycle.saldo_origem_income` | Auto. User edita via Configurar Ciclo no Planejamento | ⚠️ | Sub-label "você atualiza no Planejamento" — fluxo manual de atualização confunde, é fácil esquecer |
-| Card Reservado | DashboardPage:165-170 | `saldo_origem × reserva%` | Auto | ✅ | - |
-| Card Disponível pra gastar | DashboardPage:172-178 | `saldoDisponivel = saldo_origem × (1 − reserva%)` | Auto | ⚠️ | Depende do user manter `saldo_origem` correto |
-| Card Bills pagas no mês | DashboardPage:180-185 | Soma de `bills.is_paid` no bucket renda do mês corrente | Auto | ⚠️ | Mostra 6.6k mesmo com saldo de 800 — dois universos misturados visualmente |
-| Card Crédito (Limite/Usado/Disp/% comp.) | DashboardPage:~196-220 | StatCards do bucket crédito | Auto | ⚠️ | "Usado" mostra `gastoReal` (só tx); confunde porque saldo conta bills + tx |
+| Card Bancos (agregado) | DashboardPage (Onda 4) | Soma do saldo derivado das contas `type=bank` (opening_balance + entradas − saídas) | Auto. Click abre drawer com breakdown por conta | ✅ | Onda 4 — substitui Saldo atual manual |
+| Card Cartões (agregado) | DashboardPage (Onda 4) | Soma `usado / limite` das contas `type=credit subtype=credit_card` | Auto. Click abre drawer | ✅ | Onda 4 |
+| Card Empréstimos | DashboardPage (Onda 4) | Soma da dívida do ciclo das contas `type=credit subtype=loan` (Biplay) | Auto. Click abre drawer | ✅ | Onda 4 |
+| Card Envelope | DashboardPage (Onda 4) | Saldo do envelope (entradas − saídas) | Auto. Click abre drawer | ✅ | Onda 4 |
+| Drawer drill-down por grupo | components/AccountGroupDrawer.jsx | Lista contas do grupo com saldo individual + breakdown (entradas/saídas pra bank/envelope; usado/limite/% pra credit) | Click num dos 4 cards | ✅ | Onda 4 |
+| Card Disponível pra gastar | DashboardPage (Onda 4) | `saldoOrigem × (1 − reserva%)` com saldoOrigem agora derivado da soma dos bancos | Auto, só aparece se ciclo + saldo > 0 | ✅ | Onda 4 — saldo não é mais manual |
+| Card Reservado | DashboardPage | `saldo_origem × reserva%` (saldoOrigem agora derivado) | Auto | ✅ | Onda 4 — re-derivado |
+| Card Bills pagas no mês | DashboardPage | Soma de `bills.is_paid` no bucket renda do mês corrente | Auto | ✅ | Onda 4 — agora dentro da seção "Disponível pra gastar" |
+| Card % comprometido cartões | DashboardPage (Onda 4) | Σ usado_cartões / Σ credit_limit (cor verde/âmbar/vermelho conforme %) | Auto | ✅ | Onda 4 — substitui % comprometido global |
 | Drawer "Ritmo · Reserva · Metas" | DashboardPage (final) | Trigger único na base que abre painel com 3 cards (semana corrente, reserva detalhada, metas resumidas) | Click no rodapé → painel slide-up (mobile) ou modal centralizado (desktop) | ✅ | Implementado recente, funciona bem |
 | Card Ritmo da semana (dentro drawer) | DashboardPage | gastou X / metaSemanal, status verde/amarelo/vermelho, barra | Auto | ✅ | Compara `gastoSemanaRenda` (seg→hoje, só bucket renda) com `metaSemanal` |
 | Card Reserva (dentro drawer) | DashboardPage | Disponível / Usado / Acumulada / Aporte | Auto | ✅ | - |
@@ -308,7 +312,7 @@ SELECT id, name, type, icon, sort_order FROM categories ORDER BY type, sort_orde
 ## Vínculos quebrados conceitualmente
 
 7. ~~**Meta vs transação**~~ — ✅ **Resolvido na Onda 2 (saldo derivado de tx vinculadas)**
-8. **Bills pagas no mês × Saldo atual** — visualmente parece "gastei 6.6k com só 800 em conta". Concepts diferentes em cards próximos.
+8. ~~**Bills pagas no mês × Saldo atual**~~ — ✅ **Mitigado na Onda 4** (cards agregados separam Bancos vs Cartões vs Empréstimos; "Bills pagas no mês" virou métrica derivada na seção "Disponível pra gastar").
 9. ~~**payment_source só do tipo, não da conta**~~ — ✅ **Resolvido na Onda 3 (account_id em tx)**
 9b. ~~**Multi-conta/multi-cartão sem distinção**~~ — ✅ **Resolvido na Onda 3**
 
@@ -325,3 +329,4 @@ SELECT id, name, type, icon, sort_order FROM categories ORDER BY type, sort_orde
 | 2026-05-07 | 1 — Limpeza | Removido fluxo WeeklyCheckpoint completo (modal, chart Previsto×Real, tab Histórico, record_checkpoint da IA, healthStatus, isoWeekBounds, useCheckpoints). Tabela `weekly_checkpoints` preservada no DB. ~300 linhas removidas. |
 | 2026-05-07 | 2 — Polimentos UX | Filtro por ciclo dinâmico em Lançamentos. Chip `[Tipo]` em categorias (TxModal+ItemModal). Metas reformuladas pra modelo "espelho honesto": saldo derivado de tx vinculadas via `goal_id`, sem agressividade/dots. `goalPlanner.js` deletado. Migration `migration_goal_link.sql` aplicada. Colunas órfãs em `goals` (aggressiveness etc.) preservadas pra rollback. |
 | 2026-05-14 | 3 — Multi-conta | Adicionada tabela `accounts` + colunas `account_id`/`from_account_id`/`to_account_id` em transactions. Seção Contas em /settings com CRUD. TxModal estendido (campo Conta pra income/expense/investment; De+Para pra transfer). Badge de conta + filtro por conta na lista de Lançamentos. Migrations aplicadas: backup_pre_onda3 (schema backup_2026_05_14), wipe_pre_onda3 (DELETE dos dados do user), accounts. Reset clean — usuário recadastrou tudo no novo ciclo. |
+| 2026-05-15 | 4 — Dashboard multi-conta | Migration `migration_account_balances.sql` (opening_balance + credit_limit em accounts). `budgetEngine` ganha `computeAccountSnapshot` + `computeAccountsGroupSnapshot`. Hook `useAccountSnapshots`. Novo componente `AccountGroupDrawer`. Dashboard refatorado: 4 cards agregados (Bancos / Cartões / Empréstimos / Envelope) com drill-down em drawer lateral. AccountModal ganha campos saldo inicial e limite. Saldo passa a ser derivado de transactions; `cycle.saldo_origem_*` fica deprecated (mantido no schema). Migration `migration_family_share.sql` aplicada antes (RLS familiar permissiva nas 5 tabelas pra compartilhamento total Carlos + Gabriele). |
