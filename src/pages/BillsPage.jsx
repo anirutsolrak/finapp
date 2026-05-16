@@ -1,8 +1,9 @@
 import { useState, useMemo } from 'react'
-import { format, differenceInDays, parseISO, addMonths, subMonths } from 'date-fns'
+import { format, differenceInDays, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { Plus, CheckCircle2, Circle, Trash2, Edit2, Lock, Bell, Link, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, LayoutList, Calendar } from 'lucide-react'
+import { Plus, CheckCircle2, Circle, Trash2, Edit2, Lock, Bell, Link, ChevronDown, ChevronUp, LayoutList, Calendar } from 'lucide-react'
 import { useBills } from '../hooks/useData'
+import { useDateRange } from '../contexts/DateRangeContext'
 import { upsertBill, markBillPaid, deleteBill } from '../lib/db'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -135,14 +136,13 @@ function ManualModal({ initial, onClose, onSaved, userId }) {
 }
 
 export default function BillsPage() {
-  const [currentDate, setCurrentDate] = useState(new Date())
+  const { range } = useDateRange()
   const [viewMode, setViewMode] = useState('month') // 'month' | 'all'
   const [filterPaid, setFilterPaid] = useState('all') // 'all' | 'pending' | 'paid'
   const [modal, setModal] = useState(null)
   const { user } = useAuth()
 
-  const monthRef = format(currentDate, 'yyyy-MM')
-  const { bills, allBills, loading, refetch } = useBills(monthRef)
+  const { bills, allBills, loading, refetch } = useBills()
 
   // Agrupa todas as bills por month_ref para visão acordeão
   const billsByMonth = useMemo(() => {
@@ -185,7 +185,7 @@ export default function BillsPage() {
     refetch()
   }
 
-  const monthLabel = format(currentDate, "MMMM 'de' yyyy", { locale: ptBR })
+  const monthLabel = range?.label || 'Sem período'
 
   return (
     <div className="space-y-5">
@@ -210,10 +210,8 @@ export default function BillsPage() {
         <>
           {/* Navegação mensal */}
           <div className="card">
-            <div className="flex items-center justify-between mb-3">
-              <button onClick={() => setCurrentDate(d => subMonths(d, 1))} className="p-1.5 text-gray-400 hover:text-white"><ChevronLeft size={18}/></button>
+            <div className="flex items-center justify-center mb-3">
               <p className="font-semibold text-white capitalize">{monthLabel}</p>
-              <button onClick={() => setCurrentDate(d => addMonths(d, 1))} className="p-1.5 text-gray-400 hover:text-white"><ChevronRight size={18}/></button>
             </div>
             <div className="grid grid-cols-3 gap-2 text-center">
               <div>
