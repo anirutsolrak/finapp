@@ -27,10 +27,13 @@ function toDate(d) {
 // Tipos de lançamento que tiram dinheiro do bucket (despesa, transferência pra outro pote, investimento).
 const OUTFLOW_TYPES = new Set(['expense', 'transfer', 'investment'])
 
-export function computeBucketSnapshot({ bucket, cycle, items = [], transactions = [], bills = [], accounts = null, today = new Date() }) {
+export function computeBucketSnapshot({ bucket, cycle, items = [], transactions = [], bills = [], accounts = null, accountTransactions = null, today = new Date() }) {
   if (!cycle) {
     return { saldoOrigem: 0, reserva: 0, planejado: 0, gastoReal: 0, committed: 0, saldoDisponivel: 0, diasRestantes: 0, mediaDiaria: 0, metaSemanal: 0, pct: 0 }
   }
+  // saldoAtual da conta precisa de TODO o histórico de tx (não filtrado por DateRange);
+  // caller passa accountTransactions separado. Fallback pra `transactions` mantém back-compat.
+  const allAccountTx = accountTransactions || transactions
   // Onda 4: se accounts foi passado, deriva saldoOrigem da soma dos saldos das contas.
   // Senão, cai no comportamento antigo (lê cycle.saldo_origem_*).
   let saldoOrigem
@@ -44,7 +47,7 @@ export function computeBucketSnapshot({ bucket, cycle, items = [], transactions 
       // Bucket income = soma do saldo derivado das contas bank.
       const banks = accounts.filter(a => a.is_active !== false && a.type === 'bank')
       saldoOrigem = banks.reduce((sum, account) => {
-        const snap = computeAccountSnapshot({ account, transactions })
+        const snap = computeAccountSnapshot({ account, transactions: allAccountTx })
         return sum + snap.saldoAtual
       }, 0)
     }
@@ -108,14 +111,15 @@ export function computeBucketSnapshot({ bucket, cycle, items = [], transactions 
 
 // Snapshot da reserva: saldo carregado do ciclo anterior + aporte deste ciclo − usado neste ciclo.
 // Nunca retorna disponivel < 0 (validamos no lançamento para impedir).
-export function computeReservaSnapshot({ cycle, transactions = [], accounts = null }) {
+export function computeReservaSnapshot({ cycle, transactions = [], accounts = null, accountTransactions = null }) {
   if (!cycle) return { acumulada: 0, aporte: 0, usado: 0, disponivel: 0, total: 0 }
   const acumulada = Number(cycle.reserva_acumulada) || 0
+  const allAccountTx = accountTransactions || transactions
   let saldoOrigemIncome
   if (accounts && accounts.length > 0) {
     const banks = accounts.filter(a => a.is_active !== false && a.type === 'bank')
     saldoOrigemIncome = banks.reduce((sum, account) => {
-      const snap = computeAccountSnapshot({ account, transactions })
+      const snap = computeAccountSnapshot({ account, transactions: allAccountTx })
       return sum + snap.saldoAtual
     }, 0)
   } else {

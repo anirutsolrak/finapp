@@ -42,6 +42,15 @@ export const getTransactionsByRange = (startDate, endDate) =>
     .lte('date', endDate)
     .order('date', { ascending: false })
 
+// Todas as tx vinculadas a alguma conta — sem filtro de data.
+// Usado pra derivar saldoAtual das contas (computeAccountSnapshot), que precisa
+// somar histórico inteiro pra ficar coerente quando o DateRange muda de ciclo.
+export const getAccountTransactions = () =>
+  supabase
+    .from('transactions')
+    .select('id, type, amount, account_id, from_account_id, to_account_id')
+    .or('account_id.not.is.null,from_account_id.not.is.null,to_account_id.not.is.null')
+
 const withMonthRef = (data) => {
   if (!data.month_ref && data.date) return { ...data, month_ref: String(data.date).slice(0, 7) }
   return data

@@ -12,16 +12,17 @@ export function useDashboard() {
   const load = useCallback(async () => {
     if (!range) return
     setLoading(true)
-    const [{ data: bills }, { data: goals }, { data: items }, { data: txs }] = await Promise.all([
+    const [{ data: bills }, { data: goals }, { data: items }, { data: txs }, { data: accountTxs }] = await Promise.all([
       db.getBillsByRange(range.startDate, range.endDate),
       db.getGoals(),
       db.getBudgetItems(),
       db.getTransactionsByRange(range.startDate, range.endDate),
+      db.getAccountTransactions(),
     ])
     const cycle = (cycles || []).find(c =>
       c.start_date === range.startDate && c.end_date === range.endDate
     ) || null
-    setData({ bills, goals, budgetItems: items, cycle, transactions: txs })
+    setData({ bills, goals, budgetItems: items, cycle, transactions: txs, accountTransactions: accountTxs })
     setLoading(false)
   }, [range, cycles])
 

@@ -63,11 +63,11 @@ export default function DashboardPage() {
   const firstName = profile?.full_name?.split(' ')[0] || 'Usuário'
   const monthLabel = format(new Date(), "MMMM 'de' yyyy", { locale: ptBR })
 
-  const { bills = [], goals = [], budgetItems = [], cycle = null, transactions = [] } = data || {}
+  const { bills = [], goals = [], budgetItems = [], cycle = null, transactions = [], accountTransactions = [] } = data || {}
 
-  const accountSnapshots = useAccountSnapshots(transactions, accounts)
-  const incomeSnap = useMemo(() => computeBucketSnapshot({ bucket: 'income', cycle, items: budgetItems, transactions, bills, accounts }), [cycle, budgetItems, transactions, bills, accounts])
-  const reservaSnap = useMemo(() => computeReservaSnapshot({ cycle, transactions, accounts }), [cycle, transactions, accounts])
+  const accountSnapshots = useAccountSnapshots(accountTransactions, accounts)
+  const incomeSnap = useMemo(() => computeBucketSnapshot({ bucket: 'income', cycle, items: budgetItems, transactions, bills, accounts, accountTransactions }), [cycle, budgetItems, transactions, bills, accounts, accountTransactions])
+  const reservaSnap = useMemo(() => computeReservaSnapshot({ cycle, transactions, accounts, accountTransactions }), [cycle, transactions, accounts, accountTransactions])
 
   // Bills pagas no mês (bucket renda) — exclui itens de crédito.
   const paidBillsRendaMes = useMemo(
