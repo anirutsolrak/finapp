@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { format } from 'date-fns'
 import * as db from '../lib/db'
 import { supabase } from '../lib/supabase'
+import { computeAccountsGroupSnapshot } from '../lib/budgetEngine'
 
 export function useMonthRef() {
   const [monthRef, setMonthRef] = useState(format(new Date(), 'yyyy-MM'))
@@ -237,4 +238,32 @@ export function useAccounts() {
   }, [load])
 
   return { accounts, loading, refetch: load }
+}
+
+// Agrega snapshots por grupo (banks / cards / loans / envelope) a partir de transactions.
+// Não faz fetch novo — depende de useAccounts (com realtime) e do `transactions` passado.
+export function useAccountSnapshots(transactions = []) {
+  const { accounts } = useAccounts()
+  return useMemo(() => ({
+    banks: computeAccountsGroupSnapshot({
+      accounts,
+      transactions,
+      filter: a => a.type === 'bank',
+    }),
+    cards: computeAccountsGroupSnapshot({
+      accounts,
+      transactions,
+      filter: a => a.type === 'credit' && a.subtype === 'credit_card',
+    }),
+    loans: computeAccountsGroupSnapshot({
+      accounts,
+      transactions,
+      filter: a => a.type === 'credit' && a.subtype === 'loan',
+    }),
+    envelope: computeAccountsGroupSnapshot({
+      accounts,
+      transactions,
+      filter: a => a.type === 'envelope',
+    }),
+  }), [accounts, transactions])
 }
