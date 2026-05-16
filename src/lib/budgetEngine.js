@@ -27,11 +27,31 @@ function toDate(d) {
 // Tipos de lançamento que tiram dinheiro do bucket (despesa, transferência pra outro pote, investimento).
 const OUTFLOW_TYPES = new Set(['expense', 'transfer', 'investment'])
 
-export function computeBucketSnapshot({ bucket, cycle, items = [], transactions = [], bills = [], today = new Date() }) {
+export function computeBucketSnapshot({ bucket, cycle, items = [], transactions = [], bills = [], accounts = null, today = new Date() }) {
   if (!cycle) {
     return { saldoOrigem: 0, reserva: 0, planejado: 0, gastoReal: 0, committed: 0, saldoDisponivel: 0, diasRestantes: 0, mediaDiaria: 0, metaSemanal: 0, pct: 0 }
   }
-  const saldoOrigem = Number(bucket === 'credit' ? cycle.saldo_origem_credit : cycle.saldo_origem_income) || 0
+  // Onda 4: se accounts foi passado, deriva saldoOrigem da soma dos saldos das contas.
+  // Senão, cai no comportamento antigo (lê cycle.saldo_origem_*).
+  let saldoOrigem
+  if (accounts && accounts.length > 0) {
+    if (bucket === 'credit') {
+      // Bucket credit = soma dos credit_limit das contas credit_card (loan fica fora).
+      saldoOrigem = accounts
+        .filter(a => a.is_active !== false && a.type === 'credit' && a.subtype === 'credit_card')
+        .reduce((a, ac) => a + (Number(ac.credit_limit) || 0), 0)
+    } else {
+      // Bucket income = soma do saldo derivado das contas bank.
+      const banks = accounts.filter(a => a.is_active !== false && a.type === 'bank')
+      saldoOrigem = banks.reduce((sum, account) => {
+        const snap = computeAccountSnapshot({ account, transactions })
+        return sum + snap.saldoAtual
+      }, 0)
+    }
+  } else {
+    saldoOrigem = Number(bucket === 'credit' ? cycle.saldo_origem_credit : cycle.saldo_origem_income) || 0
+  }
+
   const reservaPct = Number(cycle.reserva_pct) || 0
   // Reserva nominal (meta de separação do mês) calculada sobre o saldo_origem original.
   const reserva = bucket === 'credit' ? 0 : saldoOrigem * reservaPct / 100
@@ -60,16 +80,15 @@ export function computeBucketSnapshot({ bucket, cycle, items = [], transactions 
     .reduce((a, t) => a + Number(t.amount || 0), 0)
   committed += adhocTx
 
-  // Modelo unificado (renda e crédito): saldo_origem é o valor em conta/limite no momento em que
-  // o usuário salvou Configurar ciclo (cycle.updated_at é o cutoff). Outflows logados DEPOIS desse
-  // momento (tx.created_at >= updated_at) reduzem automaticamente o saldo exibido.
-  // Tx pré-cutoff são consideradas "já embutidas" no saldo_origem (não dobram).
-  // Reserva (%) incide sobre o saldoReal só na renda (crédito não tem reserva).
+  // Onda 4: quando accounts deriva saldoOrigem, saidaSinceCutoff já está embutida (saldoAtual = opening + entradas − saídas).
+  // Pra não duplicar, modo derivado pula a subtração de saidaSinceCutoff.
   const cutoff = cycle.updated_at ? new Date(cycle.updated_at) : null
-  const saidaSinceCutoff = transactions
-    .filter(t => OUTFLOW_TYPES.has(t.type) && bucketOf(t.payment_source) === bucket)
-    .filter(t => !cutoff || (t.created_at && new Date(t.created_at) >= cutoff))
-    .reduce((a, t) => a + Number(t.amount || 0), 0)
+  const saidaSinceCutoff = (accounts && accounts.length > 0)
+    ? 0
+    : transactions
+        .filter(t => OUTFLOW_TYPES.has(t.type) && bucketOf(t.payment_source) === bucket)
+        .filter(t => !cutoff || (t.created_at && new Date(t.created_at) >= cutoff))
+        .reduce((a, t) => a + Number(t.amount || 0), 0)
   const saldoReal = saldoOrigem - saidaSinceCutoff
   const saldoDisponivel = bucket === 'credit'
     ? Math.max(saldoReal, 0)
@@ -89,10 +108,19 @@ export function computeBucketSnapshot({ bucket, cycle, items = [], transactions 
 
 // Snapshot da reserva: saldo carregado do ciclo anterior + aporte deste ciclo − usado neste ciclo.
 // Nunca retorna disponivel < 0 (validamos no lançamento para impedir).
-export function computeReservaSnapshot({ cycle, transactions = [] }) {
+export function computeReservaSnapshot({ cycle, transactions = [], accounts = null }) {
   if (!cycle) return { acumulada: 0, aporte: 0, usado: 0, disponivel: 0, total: 0 }
   const acumulada = Number(cycle.reserva_acumulada) || 0
-  const saldoOrigemIncome = Number(cycle.saldo_origem_income) || 0
+  let saldoOrigemIncome
+  if (accounts && accounts.length > 0) {
+    const banks = accounts.filter(a => a.is_active !== false && a.type === 'bank')
+    saldoOrigemIncome = banks.reduce((sum, account) => {
+      const snap = computeAccountSnapshot({ account, transactions })
+      return sum + snap.saldoAtual
+    }, 0)
+  } else {
+    saldoOrigemIncome = Number(cycle.saldo_origem_income) || 0
+  }
   const aporte = saldoOrigemIncome * (Number(cycle.reserva_pct) || 0) / 100
   const usado = transactions
     .filter(t => t.type === 'expense' && t.payment_source === 'reserve')
@@ -102,3 +130,86 @@ export function computeReservaSnapshot({ cycle, transactions = [] }) {
   return { acumulada, aporte, usado, disponivel, total }
 }
 
+// ─── ACCOUNT SNAPSHOTS (Onda 4 — multi-conta) ────────────────────────────────
+
+// Tipos de entrada que aumentam o saldo de uma conta.
+const INFLOW_TYPES = new Set(['income'])
+// Tipos de saída que reduzem o saldo de uma conta (não inclui 'transfer' — transfers são
+// tratadas separadamente via from_account_id/to_account_id).
+const EXPENSE_OUTFLOW_TYPES = new Set(['expense', 'investment'])
+
+/**
+ * Snapshot de UMA conta: saldo atual + entradas/saídas do conjunto de transactions passado.
+ *
+ * - bank / envelope: saldo = opening_balance + entradas − saídas
+ * - credit (credit_card / loan): saldo NÃO usa opening_balance. saldoAtual = dívida do ciclo
+ *   (Σ saídas − Σ pagamentos via transfer entrando).
+ */
+export function computeAccountSnapshot({ account, transactions = [] }) {
+  if (!account) return null
+
+  const openingBalance = Number(account.opening_balance) || 0
+  const creditLimit = Number(account.credit_limit) || 0
+  const isCredit = account.type === 'credit'
+
+  // Entradas: income com account_id == conta + transfers chegando (to_account_id == conta).
+  const entradas = transactions
+    .filter(t => {
+      if (INFLOW_TYPES.has(t.type) && t.account_id === account.id) return true
+      if (t.type === 'transfer' && t.to_account_id === account.id) return true
+      return false
+    })
+    .reduce((a, t) => a + Number(t.amount || 0), 0)
+
+  // Saídas: expense/investment com account_id == conta + transfers saindo (from_account_id == conta).
+  const saidas = transactions
+    .filter(t => {
+      if (EXPENSE_OUTFLOW_TYPES.has(t.type) && t.account_id === account.id) return true
+      if (t.type === 'transfer' && t.from_account_id === account.id) return true
+      return false
+    })
+    .reduce((a, t) => a + Number(t.amount || 0), 0)
+
+  const saldoAtual = isCredit
+    ? saidas - entradas  // credit: dívida líquida (saídas − pagamentos via transfer entrando)
+    : openingBalance + entradas - saidas
+
+  const usado = isCredit ? Math.max(saldoAtual, 0) : 0
+  const pctComprometido = (isCredit && creditLimit > 0) ? (usado / creditLimit) * 100 : null
+
+  return {
+    account,
+    saldoAtual,
+    entradas,
+    saidas,
+    usado,
+    limite: creditLimit,
+    pctComprometido,
+  }
+}
+
+/**
+ * Agregado por grupo de contas (bank / credit_card / loan / envelope).
+ * `filter` é uma função (account) => boolean.
+ */
+export function computeAccountsGroupSnapshot({ accounts = [], transactions = [], filter }) {
+  const contasFiltradas = accounts.filter(a => a.is_active !== false).filter(filter)
+  const snapshots = contasFiltradas.map(account => computeAccountSnapshot({ account, transactions }))
+
+  const saldoTotal = snapshots.reduce((a, s) => a + s.saldoAtual, 0)
+  const entradasTotal = snapshots.reduce((a, s) => a + s.entradas, 0)
+  const saidasTotal = snapshots.reduce((a, s) => a + s.saidas, 0)
+  const usadoTotal = snapshots.reduce((a, s) => a + s.usado, 0)
+  const limiteTotal = snapshots.reduce((a, s) => a + s.limite, 0)
+  const pctComprometidoTotal = limiteTotal > 0 ? (usadoTotal / limiteTotal) * 100 : null
+
+  return {
+    contas: snapshots,
+    saldoTotal,
+    entradasTotal,
+    saidasTotal,
+    usadoTotal,
+    limiteTotal,
+    pctComprometidoTotal,
+  }
+}
