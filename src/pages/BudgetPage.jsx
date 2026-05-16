@@ -1,7 +1,8 @@
 import { useState, useMemo, useCallback } from 'react'
 import { format } from 'date-fns'
 import { Plus, Edit2, Trash2, Lock, TrendingUp, TrendingDown, Settings, RefreshCw, Wallet, CreditCard } from 'lucide-react'
-import { useBudgetItems, useBudgetCycle, useTransactions, useMonthRef, useBills } from '../hooks/useData'
+import { useBudgetItems, useBudgetCycle, useTransactions, useBills } from '../hooks/useData'
+import { useDateRange } from '../contexts/DateRangeContext'
 import { upsertBudgetItem, deleteBudgetItem, upsertBudgetCycle } from '../lib/db'
 import { useAuth } from '../contexts/AuthContext'
 import {
@@ -241,11 +242,12 @@ function SnapshotCard({ snapshot, bucket, reservaSnapshot }) {
 }
 
 export default function BudgetPage() {
-  const { monthRef } = useMonthRef()
+  const { range } = useDateRange()
+  const monthRef = range?.startDate?.slice(0, 7) || ''
   const { items, categories, loading, refetch } = useBudgetItems()
-  const { cycle, refetch: refetchCycle } = useBudgetCycle(monthRef)
-  const { transactions, refetch: refetchTx } = useTransactions(monthRef)
-  const { bills, refetch: refetchBills } = useBills(monthRef)
+  const { cycle, refetch: refetchCycle } = useBudgetCycle()
+  const { transactions, refetch: refetchTx } = useTransactions()
+  const { bills, refetch: refetchBills } = useBills()
   const { user } = useAuth()
 
   const [tab, setTab] = useState('income')
