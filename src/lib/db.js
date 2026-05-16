@@ -75,6 +75,14 @@ export const getBills = (monthRef) => {
 export const getAllBills = () =>
   supabase.from('bills').select('*, budget_items(active, payment_source)').order('month_ref', { ascending: false }).order('due_date')
 
+export const getBillsByRange = (startDate, endDate) =>
+  supabase
+    .from('bills')
+    .select('*, budget_items(active, payment_source)')
+    .gte('due_date', startDate)
+    .lte('due_date', endDate)
+    .order('due_date')
+
 export const getUpcomingBills = (days = 7) => {
   const today = format(new Date(), 'yyyy-MM-dd')
   const future = format(new Date(Date.now() + days * 86400000), 'yyyy-MM-dd')

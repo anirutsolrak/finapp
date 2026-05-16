@@ -3,28 +3,33 @@ import { format } from 'date-fns'
 import * as db from '../lib/db'
 import { supabase } from '../lib/supabase'
 import { computeAccountsGroupSnapshot } from '../lib/budgetEngine'
+import { useDateRange } from '../contexts/DateRangeContext'
 
 export function useMonthRef() {
   const [monthRef, setMonthRef] = useState(format(new Date(), 'yyyy-MM'))
   return { monthRef, setMonthRef }
 }
 
-export function useDashboard(monthRef) {
+export function useDashboard() {
+  const { range, cycles } = useDateRange()
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
 
   const load = useCallback(async () => {
+    if (!range) return
     setLoading(true)
-    const [{ data: bills }, { data: goals }, { data: items }, cycle, { data: txs }] = await Promise.all([
-      db.getBills(monthRef),
+    const [{ data: bills }, { data: goals }, { data: items }, { data: txs }] = await Promise.all([
+      db.getBillsByRange(range.startDate, range.endDate),
       db.getGoals(),
       db.getBudgetItems(),
-      db.getBudgetCycle(monthRef),
-      db.getTransactions(monthRef),
+      db.getTransactionsByRange(range.startDate, range.endDate),
     ])
+    const cycle = (cycles || []).find(c =>
+      c.start_date === range.startDate && c.end_date === range.endDate
+    ) || null
     setData({ bills, goals, budgetItems: items, cycle, transactions: txs })
     setLoading(false)
-  }, [monthRef])
+  }, [range, cycles])
 
   useEffect(() => { load() }, [load])
 
