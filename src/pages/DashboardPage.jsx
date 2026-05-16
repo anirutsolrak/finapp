@@ -1,12 +1,13 @@
 import { useState, useMemo } from 'react'
 import { format, differenceInDays, parseISO, startOfWeek, isBefore, isAfter } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { TrendingUp, AlertCircle, Target, ArrowRight, Sparkles, Settings, Clock, Wallet, CreditCard, Activity, PiggyBank, Lock, Receipt, X, Repeat, Mail } from 'lucide-react'
+import { TrendingUp, AlertCircle, Target, ArrowRight, Sparkles, Settings, Clock, Wallet, CreditCard, Activity, PiggyBank, Lock, Receipt, X, Repeat, Mail, DollarSign } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useDashboard, useMonthRef, useAccountSnapshots, useAccounts } from '../hooks/useData'
 import { useAuth } from '../contexts/AuthContext'
 import { computeBucketSnapshot, computeReservaSnapshot, bucketOf } from '../lib/budgetEngine'
 import AccountGroupDrawer from '../components/AccountGroupDrawer'
+import PayBillsModal from '../components/PayBillsModal'
 
 const fmt = (v) => {
   if (typeof v === 'string') return v
@@ -51,12 +52,13 @@ function BillAlert({ bill }) {
 }
 
 export default function DashboardPage() {
-  const { profile } = useAuth()
+  const { profile, user } = useAuth()
   const { monthRef } = useMonthRef()
   const { data, loading } = useDashboard(monthRef)
   const navigate = useNavigate()
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [accountDrawerGroup, setAccountDrawerGroup] = useState(null)
+  const [payModalGroup, setPayModalGroup] = useState(null)
   const { accounts } = useAccounts()
 
   const firstName = profile?.full_name?.split(' ')[0] || 'Usuário'
@@ -155,8 +157,21 @@ export default function DashboardPage() {
             <button onClick={() => setAccountDrawerGroup('cards')} className="card flex flex-col gap-1 text-left hover:bg-gray-800/50 transition-colors">
               <div className="flex items-center justify-between mb-1">
                 <span className="text-xs text-gray-500 font-medium">💳 Cartões</span>
-                <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: COLORS.credit + '20' }}>
-                  <CreditCard size={14} style={{ color: COLORS.credit }} />
+                <div className="flex items-center gap-1">
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    onClick={e => { e.stopPropagation(); setPayModalGroup('cards') }}
+                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); setPayModalGroup('cards') } }}
+                    className="w-6 h-6 rounded-md flex items-center justify-center text-gray-400 hover:text-emerald-400 hover:bg-gray-800 cursor-pointer"
+                    aria-label="Pagar cartões"
+                    title="Pagar cartões"
+                  >
+                    <DollarSign size={13}/>
+                  </span>
+                  <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: COLORS.credit + '20' }}>
+                    <CreditCard size={14} style={{ color: COLORS.credit }} />
+                  </div>
                 </div>
               </div>
               <p className="text-xl font-bold text-white">{fmt(accountSnapshots.cards.usadoTotal)}</p>
@@ -172,8 +187,21 @@ export default function DashboardPage() {
             <button onClick={() => setAccountDrawerGroup('loans')} className="card flex flex-col gap-1 text-left hover:bg-gray-800/50 transition-colors">
               <div className="flex items-center justify-between mb-1">
                 <span className="text-xs text-gray-500 font-medium">🔁 Empréstimos</span>
-                <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: COLORS.installment + '20' }}>
-                  <Repeat size={14} style={{ color: COLORS.installment }} />
+                <div className="flex items-center gap-1">
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    onClick={e => { e.stopPropagation(); setPayModalGroup('loans') }}
+                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); setPayModalGroup('loans') } }}
+                    className="w-6 h-6 rounded-md flex items-center justify-center text-gray-400 hover:text-emerald-400 hover:bg-gray-800 cursor-pointer"
+                    aria-label="Pagar empréstimos"
+                    title="Pagar empréstimos"
+                  >
+                    <DollarSign size={13}/>
+                  </span>
+                  <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: COLORS.installment + '20' }}>
+                    <Repeat size={14} style={{ color: COLORS.installment }} />
+                  </div>
                 </div>
               </div>
               <p className="text-xl font-bold text-white">{fmt(accountSnapshots.loans.usadoTotal)}</p>
@@ -396,6 +424,15 @@ export default function DashboardPage() {
         group={accountDrawerGroup}
         snapshot={accountDrawerGroup ? accountSnapshots[accountDrawerGroup] : null}
         onClose={() => setAccountDrawerGroup(null)}
+      />
+
+      <PayBillsModal
+        group={payModalGroup}
+        snapshot={payModalGroup ? accountSnapshots[payModalGroup] : null}
+        accounts={accounts}
+        userId={user?.id}
+        onClose={() => setPayModalGroup(null)}
+        onSaved={() => { /* realtime cuida do refresh */ }}
       />
     </div>
   )
