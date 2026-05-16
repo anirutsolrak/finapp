@@ -1,11 +1,12 @@
 import { useState, useMemo } from 'react'
 import { format, differenceInDays, parseISO, startOfWeek, isBefore, isAfter } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { TrendingUp, AlertCircle, Target, ArrowRight, Sparkles, Settings, Clock, Wallet, CreditCard, Activity, PiggyBank, Lock, Receipt, X } from 'lucide-react'
+import { TrendingUp, AlertCircle, Target, ArrowRight, Sparkles, Settings, Clock, Wallet, CreditCard, Activity, PiggyBank, Lock, Receipt, X, Repeat, Mail } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-import { useDashboard, useMonthRef } from '../hooks/useData'
+import { useDashboard, useMonthRef, useAccountSnapshots, useAccounts } from '../hooks/useData'
 import { useAuth } from '../contexts/AuthContext'
 import { computeBucketSnapshot, computeReservaSnapshot, bucketOf } from '../lib/budgetEngine'
+import AccountGroupDrawer from '../components/AccountGroupDrawer'
 
 const fmt = (v) => {
   if (typeof v === 'string') return v
@@ -55,16 +56,17 @@ export default function DashboardPage() {
   const { data, loading } = useDashboard(monthRef)
   const navigate = useNavigate()
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [accountDrawerGroup, setAccountDrawerGroup] = useState(null)
+  const { accounts } = useAccounts()
 
   const firstName = profile?.full_name?.split(' ')[0] || 'Usuário'
   const monthLabel = format(new Date(), "MMMM 'de' yyyy", { locale: ptBR })
 
   const { bills = [], goals = [], budgetItems = [], cycle = null, transactions = [] } = data || {}
 
-  const incomeSnap = useMemo(() => computeBucketSnapshot({ bucket: 'income', cycle, items: budgetItems, transactions, bills }), [cycle, budgetItems, transactions, bills])
-  const creditSnap = useMemo(() => computeBucketSnapshot({ bucket: 'credit', cycle, items: budgetItems, transactions, bills }), [cycle, budgetItems, transactions, bills])
-  const reservaSnap = useMemo(() => computeReservaSnapshot({ cycle, transactions }), [cycle, transactions])
-  const creditUsedPct = creditSnap.saldoOrigem > 0 ? (creditSnap.saidaSinceCutoff / creditSnap.saldoOrigem) * 100 : 0
+  const accountSnapshots = useAccountSnapshots(transactions)
+  const incomeSnap = useMemo(() => computeBucketSnapshot({ bucket: 'income', cycle, items: budgetItems, transactions, bills, accounts }), [cycle, budgetItems, transactions, bills, accounts])
+  const reservaSnap = useMemo(() => computeReservaSnapshot({ cycle, transactions, accounts }), [cycle, transactions, accounts])
 
   // Bills pagas no mês (bucket renda) — exclui itens de crédito.
   const paidBillsRendaMes = useMemo(
@@ -132,52 +134,101 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Stats Renda */}
+      {/* Cards multi-conta (Onda 4) */}
       <div>
-        <div className="flex items-center justify-between mb-2">
-          <p className="section-title flex items-center gap-2"><Wallet size={12}/> Renda</p>
-        </div>
+        <p className="section-title flex items-center gap-2 mb-2"><Wallet size={12}/> Suas contas</p>
         <div className="grid grid-cols-2 gap-3">
-          <StatCard
-            label="Saldo atual"
-            value={incomeSnap.saldoOrigem}
-            color={COLORS.income}
-            icon={Wallet}
-            sub="Em conta (você atualiza no Planejamento)"
-          />
-          <StatCard
-            label="Reservado"
-            value={incomeSnap.reserva}
-            color={COLORS.reserve}
-            icon={Lock}
-            sub={`${cycle?.reserva_pct || 0}% do saldo`}
-          />
-          <StatCard
-            label="Disponível pra gastar"
-            value={incomeSnap.saldoDisponivel}
-            color={incomeSnap.saldoDisponivel >= 0 ? COLORS.income : COLORS.installment}
-            icon={TrendingUp}
-            sub={`${incomeSnap.diasRestantes}d até virar o ciclo`}
-          />
-          <StatCard
-            label="Bills pagas no mês"
-            value={paidBillsRendaMes}
-            color={COLORS.income}
-            icon={Receipt}
-            sub="Sai diretamente da conta"
-          />
+          {accountSnapshots.banks.contas.length > 0 && (
+            <button onClick={() => setAccountDrawerGroup('banks')} className="card flex flex-col gap-1 text-left hover:bg-gray-800/50 transition-colors">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs text-gray-500 font-medium">🏦 Bancos</span>
+                <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: COLORS.income + '20' }}>
+                  <Wallet size={14} style={{ color: COLORS.income }} />
+                </div>
+              </div>
+              <p className="text-xl font-bold text-white">{fmt(accountSnapshots.banks.saldoTotal)}</p>
+              <p className="text-xs text-gray-500">{accountSnapshots.banks.contas.length} {accountSnapshots.banks.contas.length === 1 ? 'conta' : 'contas'} · toque pra detalhar</p>
+            </button>
+          )}
+
+          {accountSnapshots.cards.contas.length > 0 && (
+            <button onClick={() => setAccountDrawerGroup('cards')} className="card flex flex-col gap-1 text-left hover:bg-gray-800/50 transition-colors">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs text-gray-500 font-medium">💳 Cartões</span>
+                <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: COLORS.credit + '20' }}>
+                  <CreditCard size={14} style={{ color: COLORS.credit }} />
+                </div>
+              </div>
+              <p className="text-xl font-bold text-white">{fmt(accountSnapshots.cards.usadoTotal)}</p>
+              <p className="text-xs text-gray-500">
+                {accountSnapshots.cards.limiteTotal > 0
+                  ? `de ${fmt(accountSnapshots.cards.limiteTotal)} (${accountSnapshots.cards.pctComprometidoTotal?.toFixed(0) ?? 0}%)`
+                  : 'sem limite configurado'}
+              </p>
+            </button>
+          )}
+
+          {accountSnapshots.loans.contas.length > 0 && (
+            <button onClick={() => setAccountDrawerGroup('loans')} className="card flex flex-col gap-1 text-left hover:bg-gray-800/50 transition-colors">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs text-gray-500 font-medium">🔁 Empréstimos</span>
+                <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: COLORS.installment + '20' }}>
+                  <Repeat size={14} style={{ color: COLORS.installment }} />
+                </div>
+              </div>
+              <p className="text-xl font-bold text-white">{fmt(accountSnapshots.loans.usadoTotal)}</p>
+              <p className="text-xs text-gray-500">dívida do ciclo · toque pra detalhar</p>
+            </button>
+          )}
+
+          {accountSnapshots.envelope.contas.length > 0 && (
+            <button onClick={() => setAccountDrawerGroup('envelope')} className="card flex flex-col gap-1 text-left hover:bg-gray-800/50 transition-colors">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs text-gray-500 font-medium">✉️ Envelope</span>
+                <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: COLORS.variable + '20' }}>
+                  <Mail size={14} style={{ color: COLORS.variable }} />
+                </div>
+              </div>
+              <p className="text-xl font-bold text-white">{fmt(accountSnapshots.envelope.saldoTotal)}</p>
+              <p className="text-xs text-gray-500">{accountSnapshots.envelope.contas[0]?.account.name || 'envelope'}</p>
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Stats Crédito */}
-      {creditSnap.saldoOrigem > 0 && (
+      {/* Disponível pra gastar — métrica derivada agregada */}
+      {cycle && incomeSnap.saldoOrigem > 0 && (
         <div>
-          <p className="section-title flex items-center gap-2"><CreditCard size={12}/> Crédito</p>
+          <p className="section-title flex items-center gap-2 mb-2"><TrendingUp size={12}/> Disponível pra gastar</p>
           <div className="grid grid-cols-2 gap-3">
-            <StatCard label="Limite" value={creditSnap.saldoOrigem} color={COLORS.credit} icon={CreditCard}/>
-            <StatCard label="Usado desde o ciclo" value={creditSnap.saidaSinceCutoff} color={COLORS.installment} icon={Clock}/>
-            <StatCard label="Disponível" value={creditSnap.saldoDisponivel} color={COLORS.income} icon={Wallet}/>
-            <StatCard label="% comprometido" value={`${creditUsedPct.toFixed(0)}%`} color={creditUsedPct > 90 ? COLORS.installment : creditUsedPct > 70 ? COLORS.essential : COLORS.income} icon={Activity} sub="do limite" />
+            <StatCard
+              label="Disponível"
+              value={incomeSnap.saldoDisponivel}
+              color={incomeSnap.saldoDisponivel >= 0 ? COLORS.income : COLORS.installment}
+              icon={TrendingUp}
+              sub={`${incomeSnap.diasRestantes}d até virar o ciclo`}
+            />
+            <StatCard
+              label="Reservado"
+              value={incomeSnap.reserva}
+              color={COLORS.reserve}
+              icon={Lock}
+              sub={`${cycle?.reserva_pct || 0}% do saldo`}
+            />
+            <StatCard
+              label="Bills pagas no mês"
+              value={paidBillsRendaMes}
+              color={COLORS.income}
+              icon={Receipt}
+              sub="Sai diretamente da conta"
+            />
+            <StatCard
+              label="% comprometido cartões"
+              value={`${accountSnapshots.cards.pctComprometidoTotal?.toFixed(0) ?? 0}%`}
+              color={(accountSnapshots.cards.pctComprometidoTotal ?? 0) > 90 ? COLORS.installment : (accountSnapshots.cards.pctComprometidoTotal ?? 0) > 70 ? COLORS.essential : COLORS.income}
+              icon={Activity}
+              sub="dos limites configurados"
+            />
           </div>
         </div>
       )}
@@ -340,6 +391,12 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
+
+      <AccountGroupDrawer
+        group={accountDrawerGroup}
+        snapshot={accountDrawerGroup ? accountSnapshots[accountDrawerGroup] : null}
+        onClose={() => setAccountDrawerGroup(null)}
+      />
     </div>
   )
 }
