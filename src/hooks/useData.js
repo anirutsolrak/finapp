@@ -241,9 +241,9 @@ export function useAccounts() {
 }
 
 // Agrega snapshots por grupo (banks / cards / loans / envelope) a partir de transactions.
-// Não faz fetch novo — depende de useAccounts (com realtime) e do `transactions` passado.
-export function useAccountSnapshots(transactions = []) {
-  const { accounts } = useAccounts()
+// Recebe accounts como argumento (caller faz useAccounts uma única vez) pra evitar
+// double-subscribe no canal realtime 'accounts'.
+export function useAccountSnapshots(transactions = [], accounts = []) {
   return useMemo(() => ({
     banks: computeAccountsGroupSnapshot({
       accounts,
@@ -267,3 +267,4 @@ export function useAccountSnapshots(transactions = []) {
     }),
   }), [accounts, transactions])
 }
+

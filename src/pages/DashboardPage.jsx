@@ -66,7 +66,7 @@ export default function DashboardPage() {
 
   const { bills = [], goals = [], budgetItems = [], cycle = null, transactions = [] } = data || {}
 
-  const accountSnapshots = useAccountSnapshots(transactions)
+  const accountSnapshots = useAccountSnapshots(transactions, accounts)
   const incomeSnap = useMemo(() => computeBucketSnapshot({ bucket: 'income', cycle, items: budgetItems, transactions, bills, accounts }), [cycle, budgetItems, transactions, bills, accounts])
   const reservaSnap = useMemo(() => computeReservaSnapshot({ cycle, transactions, accounts }), [cycle, transactions, accounts])
 
