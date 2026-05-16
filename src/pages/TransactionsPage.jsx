@@ -1,10 +1,11 @@
 import { useState, useEffect, useMemo } from 'react'
 import { format, parseISO, startOfWeek, isAfter, isBefore } from 'date-fns'
-import { Plus, Trash2, ChevronLeft, ChevronRight, Edit2, TrendingUp, TrendingDown, ArrowRightLeft, Sparkles, Activity } from 'lucide-react'
+import { Plus, Trash2, ChevronLeft, ChevronRight, Edit2, TrendingUp, TrendingDown, ArrowRightLeft, Sparkles, Activity, Upload } from 'lucide-react'
 import { useBudgetItems, useTransactionsByCycle, useCycles, useBills, useGoals, useAccounts } from '../hooks/useData'
 import { addTransaction, deleteTransaction, updateTransaction } from '../lib/db'
 import { useAuth } from '../contexts/AuthContext'
 import { PAYMENT_SOURCE_LABELS, PAYMENT_SOURCE_ORDER, computeBucketSnapshot, computeReservaSnapshot, bucketOf } from '../lib/budgetEngine'
+import CSVImporterModal from '../components/CSVImporterModal'
 
 const fmt = (v) => `R$ ${Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
@@ -268,6 +269,7 @@ export default function TransactionsPage() {
   const { bills } = useBills(currentCycle?.month_ref)
   const { goals } = useGoals()
   const { accounts } = useAccounts()
+  const [importerOpen, setImporterOpen] = useState(false)
   const { user } = useAuth()
   const [modal, setModal] = useState(null)
   const [filterType, setFilterType] = useState('all')
@@ -361,9 +363,14 @@ export default function TransactionsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold text-white">Lançamentos</h1>
-        <button onClick={() => setModal({})} className="btn-primary flex items-center gap-1.5 text-sm">
-          <Plus size={16}/> Novo
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={() => setImporterOpen(true)} className="btn-ghost flex items-center gap-1.5 text-sm" title="Importar CSV NuBank">
+            <Upload size={16}/> Importar
+          </button>
+          <button onClick={() => setModal({})} className="btn-primary flex items-center gap-1.5 text-sm">
+            <Plus size={16}/> Novo
+          </button>
+        </div>
       </div>
 
       {!cyclesLoading && cycles.length === 0 && (
@@ -548,6 +555,14 @@ export default function TransactionsPage() {
           onSaved={refetch}
         />
       )}
+
+      <CSVImporterModal
+        open={importerOpen}
+        accounts={accounts}
+        userId={user?.id}
+        onClose={() => setImporterOpen(false)}
+        onSaved={refetch}
+      />
     </div>
   )
 }
