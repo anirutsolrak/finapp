@@ -26,6 +26,8 @@ const EMPTY_ACCOUNT = {
   is_active: true,
   display_order: 0,
   notes: '',
+  opening_balance: 0,
+  credit_limit: 0,
 }
 
 function defaultPaymentSourceForType(type) {
@@ -58,7 +60,13 @@ function AccountModal({ initial, userId, onClose, onSaved }) {
     if (!form.name.trim()) return setError('Informe um nome.')
     setSaving(true)
     const { categories, ...clean } = form
-    const payload = { ...clean, user_id: userId, display_order: Number(form.display_order) || 0 }
+    const payload = {
+      ...clean,
+      user_id: userId,
+      display_order: Number(form.display_order) || 0,
+      opening_balance: Number(form.opening_balance) || 0,
+      credit_limit: Number(form.credit_limit) || 0,
+    }
     const { error: err } = await upsertAccount(payload)
     setSaving(false)
     if (err) return setError(err.message || 'Falha ao salvar conta.')
@@ -99,6 +107,36 @@ function AccountModal({ initial, userId, onClose, onSaved }) {
           </select>
           <p className="text-xs text-gray-600 mt-1">Preenchido automaticamente ao escolher essa conta no lançamento.</p>
         </div>
+
+        {(form.type === 'bank' || form.type === 'envelope') && (
+          <div>
+            <label className="label">Saldo inicial</label>
+            <input
+              type="number"
+              step="0.01"
+              className="input"
+              value={form.opening_balance}
+              onChange={e => set('opening_balance', e.target.value)}
+              placeholder="0,00"
+            />
+            <p className="text-xs text-gray-600 mt-1">Saldo da conta no momento em que você começou a usar o app. Saldo atual = inicial + entradas − saídas.</p>
+          </div>
+        )}
+
+        {form.type === 'credit' && (
+          <div>
+            <label className="label">Limite</label>
+            <input
+              type="number"
+              step="0.01"
+              className="input"
+              value={form.credit_limit}
+              onChange={e => set('credit_limit', e.target.value)}
+              placeholder="0,00"
+            />
+            <p className="text-xs text-gray-600 mt-1">Limite total. Use 0 se for empréstimo sem limite tradicional (ex: Biplay).</p>
+          </div>
+        )}
 
         <div>
           <label className="label">Notas (opcional)</label>
