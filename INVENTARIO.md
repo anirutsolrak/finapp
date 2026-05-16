@@ -240,13 +240,14 @@ Arquivo: [src/hooks/useData.js](src/hooks/useData.js)
 
 | Hook | O que faz | Status | Obs |
 |---|---|---|---|
-| `useMonthRef()` | State local de monthRef (default = mês corrente) | ✅ | Cada page tem o seu — não compartilhado |
-| `useDashboard(monthRef)` | Fetcha bills + goals + items + cycle + tx + subscribe realtime em 5 tabelas | ✅ | Útil mas pesado: 5 canais de realtime na mesma chamada |
-| `useTransactions(monthRef)` | Fetcha tx + realtime channel `tx` | ✅ | - |
-| `useBills(monthRef)` | Fetcha bills do mês + allBills + realtime | ✅ | - |
+| `useDateRange()` | Lê `range` do `DateRangeContext` (start/end/preset/label) + `cycles` | ✅ | Onda 7 — substitui `useMonthRef` |
+| `useDashboard()` | Fetcha bills + goals + items + cycle + tx pelo range do context + realtime em 5 tabelas | ✅ | Onda 7 — não recebe mais `monthRef` |
+| `useTransactions()` | Fetcha tx pelo range do context + realtime | ✅ | Onda 7 |
+| `useBills()` | Fetcha bills pelo range do context + allBills + realtime | ✅ | Onda 7 |
 | `useGoals()` | Fetcha goals (sem filtro mês) | ✅ | - |
 | `useBudgetItems()` | Fetcha items + categorias + realtime | ✅ | - |
-| `useBudgetCycle(monthRef)` | Fetcha cycle do mês + realtime | ✅ | - |
+| `useBudgetCycle()` | Deriva cycle do context (match exato start/end com cycles do provider) | ✅ | Onda 7 — sem query própria |
+| `useTransactionsByCycle(start, end)` | Primitiva pra range arbitrário (uso explícito, não vem do context) | ✅ | - |
 | `useAccounts()` | Fetcha accounts ativas + realtime channel `accounts` | ✅ | Onda 3 |
 
 ---
@@ -260,6 +261,26 @@ Arquivo: [src/hooks/useData.js](src/hooks/useData.js)
 | [src/lib/budgetEngine.js](src/lib/budgetEngine.js) | `computeBucketSnapshot`, `computeReservaSnapshot`, `bucketOf`, constantes | Cálculos puros do modelo | ✅ | - |
 | [src/lib/claude.js](src/lib/claude.js) | `buildSystemPrompt`, `sendToClaudeAPI`, `extractAction`, `cleanText` | Cliente da Edge Function + prompt builder | ✅ | - |
 | [src/lib/todo.js](src/lib/todo.js) | `getTodoItems`, `markTodoImported` | Acesso ao schema `todo` (Supabase schema separado) | ✅ | Schema externo do app de lista |
+| [src/lib/dateRange.js](src/lib/dateRange.js) | `resolvePreset`, `findCycleForRange`, `loadFromStorage`, `saveToStorage`, `STORAGE_KEY` | Funções puras pro seletor de período global | ✅ | Onda 7 |
+| [src/contexts/DateRangeContext.jsx](src/contexts/DateRangeContext.jsx) | `DateRangeProvider`, `useDateRange` | Context global de período + cycles + persist localStorage + cross-tab sync | ✅ | Onda 7 |
+| [src/components/DateRangeSelector.jsx](src/components/DateRangeSelector.jsx) | default | Dropdown no Layout com 5 presets + range custom (date pickers) | ✅ | Onda 7 |
+
+---
+
+# 13. Ondas aplicadas
+
+### Onda 7 — Seletor de período global (2026-05-16)
+
+Substitui filtro implícito por `month_ref` por seletor global no header (`DateRangeSelector` no `Layout`). Presets: Ciclo atual / Mês atual / Mês passado / Últimos 30 dias / Últimos 90 dias. Range custom via 2 date pickers nativos. Persistido em `localStorage` (chave `finapp:dateRange`), com sincronização cross-tab via `storage` event.
+
+- **Provider:** `DateRangeProvider` em `src/contexts/DateRangeContext.jsx` envolve `AppRoutes`. Hook `useDateRange()` expõe `{ range, setRange, cycles }`.
+- **Hooks migrados:** `useDashboard`, `useTransactions`, `useBills`, `useBudgetCycle` agora leem range do context (sem arg). `useMonthRef` removido. `useTransactionsByCycle` mantido como primitiva.
+- **Páginas migradas:** 5 (Dashboard, Transactions, Bills, Budget, Lista). TransactionsPage perdeu navegação prev/next de ciclo. BillsPage perdeu navegação prev/next de mês. ListaPage perdeu lookup inline de cycle por month_ref.
+- **Derivados de ciclo** (Disponível pra gastar, Ritmo, Reserva, bottom-trigger drawer no Dashboard) só aparecem quando o range bate exato com um cycle existente. Metas continuam acessíveis via `/goals` quando drawer some.
+- **Fase 0:** UPDATE `cycle.start_date='2026-05-14'` + `seed_tx_2026-05.sql` aplicados antes da onda pra destravar o ciclo atual. Tx complementares do dia 16/05 em `seed_tx_2026-05-16.sql`.
+- **Testing:** Vitest + RTL + jsdom instalados nesta onda. 20 testes cobrindo `dateRange.js` (presets, cycle match, storage) e `DateRangeContext` (bootstrap, persist, custom range).
+- **Spec:** [docs/superpowers/specs/2026-05-16-onda7-date-range-global-design.md](docs/superpowers/specs/2026-05-16-onda7-date-range-global-design.md).
+- **Plan:** [docs/superpowers/plans/2026-05-16-onda7-date-range-global.md](docs/superpowers/plans/2026-05-16-onda7-date-range-global.md).
 
 ---
 
