@@ -4,7 +4,7 @@ import PlanItemRow from './PlanItemRow'
 
 const fmt = (v) => `R$ ${Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
-export default function BucketSection({ label, items, onTogglePaid, onEdit, defaultOpen = true }) {
+export default function BucketSection({ label, items, selected, onToggleSelect, onUnpay, onEdit, defaultOpen = true }) {
   const [open, setOpen] = useState(defaultOpen)
   const planned = items.reduce((a, i) => a + Number(i.planned_amount || 0), 0)
   if (items.length === 0) return null
@@ -20,7 +20,13 @@ export default function BucketSection({ label, items, onTogglePaid, onEdit, defa
       </button>
       {open && (
         <div className="mt-3 pt-3 border-t border-gray-800 space-y-2">
-          {items.map(i => <PlanItemRow key={i.id} item={i} onTogglePaid={onTogglePaid} onEdit={onEdit}/>)}
+          {items.map(i => (
+            <PlanItemRow key={i.id} item={i}
+              selected={selected.has(i.bill?.id)}
+              onToggleSelect={onToggleSelect}
+              onUnpay={onUnpay}
+              onEdit={onEdit}/>
+          ))}
         </div>
       )}
     </div>

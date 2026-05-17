@@ -1,5 +1,5 @@
 import { differenceInDays, parseISO, format } from 'date-fns'
-import { CheckCircle2, Circle, Edit2, Lock } from 'lucide-react'
+import { CheckCircle2, Circle, CheckSquare, Edit2, Lock } from 'lucide-react'
 
 const fmt = (v) => `R$ ${Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
@@ -13,19 +13,42 @@ function statusLabel(bill) {
   return       { label: `Vence em ${d}d`,                    color: 'text-gray-400' }
 }
 
-export default function PlanItemRow({ item, onTogglePaid, onEdit }) {
+// PlanItemRow distingue 3 caminhos:
+//   - bill paga (is_paid=true): click confirma e chama onUnpay (mantém flow single)
+//   - bill não paga + selected: click chama onToggleSelect (remove da selecao)
+//   - bill não paga + não selected: click chama onToggleSelect (adiciona à selecao)
+export default function PlanItemRow({ item, selected, onToggleSelect, onUnpay, onEdit }) {
   const bill = item.bill
   const st = statusLabel(bill)
   const isPaid = bill?.is_paid
+
+  function handleClick() {
+    if (!bill) return
+    if (isPaid) onUnpay(item)
+    else onToggleSelect(item)
+  }
+
+  const icon = isPaid
+    ? <CheckCircle2 size={22}/>
+    : selected
+      ? <CheckSquare size={22}/>
+      : <Circle size={22}/>
+
+  const iconColor = isPaid
+    ? 'text-emerald-400'
+    : selected
+      ? 'text-emerald-400'
+      : bill ? 'text-gray-600 hover:text-emerald-400' : 'text-gray-800'
+
   return (
-    <div className={`flex items-center gap-3 p-3 rounded-xl border ${isPaid ? 'bg-gray-900 border-gray-800 opacity-70' : 'bg-gray-900 border-gray-800'}`}>
+    <div className={`flex items-center gap-3 p-3 rounded-xl border ${isPaid ? 'bg-gray-900 border-gray-800 opacity-70' : selected ? 'bg-emerald-500/5 border-emerald-500/30' : 'bg-gray-900 border-gray-800'}`}>
       <button
-        onClick={() => onTogglePaid(item)}
+        onClick={handleClick}
         disabled={!bill}
-        className={`flex-shrink-0 transition-colors ${isPaid ? 'text-emerald-400' : bill ? 'text-gray-600 hover:text-emerald-400' : 'text-gray-800'}`}
+        className={`flex-shrink-0 transition-colors ${iconColor}`}
         title={bill ? '' : 'Sem bill materializada ainda'}
       >
-        {isPaid ? <CheckCircle2 size={22}/> : <Circle size={22}/>}
+        {icon}
       </button>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5">
