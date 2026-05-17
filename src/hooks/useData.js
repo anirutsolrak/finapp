@@ -259,3 +259,40 @@ export function useAccountSnapshots(transactions = [], accounts = []) {
   }), [accounts, transactions])
 }
 
+// Carrega budget_items + bills do ciclo atual, joinados no client.
+// Cada item ganha .bill (a bill do ciclo atual, se materializada).
+export function useBudget() {
+  const { range } = useDateRange()
+  const [data, setData] = useState({ items: [], bills: [], categories: [], accounts: [] })
+  const [loading, setLoading] = useState(true)
+
+  const load = useCallback(async () => {
+    if (!range) return
+    setLoading(true)
+    const [{ data: items }, { data: bills }, { data: cats }, { data: accts }] = await Promise.all([
+      db.getBudgetItems(),
+      db.getBillsByRange(range.startDate, range.endDate),
+      db.getCategories(),
+      db.getAccounts(),
+    ])
+    // Join: cada item recebe .bill (1 bill por month_ref via unique constraint)
+    const billByItemId = new Map((bills || []).map(b => [b.budget_item_id, b]))
+    const itemsWithBill = (items || []).map(i => ({ ...i, bill: billByItemId.get(i.id) || null }))
+    setData({ items: itemsWithBill, bills: bills || [], categories: cats || [], accounts: accts || [] })
+    setLoading(false)
+  }, [range])
+
+  useEffect(() => { load() }, [load])
+
+  useEffect(() => {
+    const ch = supabase.channel('budget-unified')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'budget_items' }, load)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bills' }, load)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions' }, load)
+      .subscribe()
+    return () => supabase.removeChannel(ch)
+  }, [load])
+
+  return { ...data, loading, refetch: load }
+}
+
