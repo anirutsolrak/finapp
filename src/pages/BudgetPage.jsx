@@ -129,6 +129,14 @@ function ItemModal({ initial, categories, accounts = [], defaultBucket, onClose,
           </div>
         )}
 
+        {initial?.bill?.is_paid && Number(form.planned_amount) !== Number(initial.bill.amount) && (
+          <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3">
+            <p className="text-xs text-amber-300">
+              ⚠ A bill deste ciclo já está paga. Mudanças no valor só valem a partir do próximo ciclo.
+            </p>
+          </div>
+        )}
+
         {error && <p className="text-red-400 text-sm">{error}</p>}
 
         <div className="flex gap-2 pt-1">
