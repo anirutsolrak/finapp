@@ -11,7 +11,9 @@ export const getBudgetItems = () =>
   supabase.from('budget_items').select('*, categories(*)').eq('active', true).order('created_at')
 
 export const upsertBudgetItem = (item) => {
-  const { categories, ...data } = item
+  // `categories` vem do .select join; `bill` é injetado pelo useBudget no client.
+  // Ambos não são colunas reais — strip antes de enviar pro PostgREST.
+  const { categories, bill, ...data } = item
   if (data.id) {
     return supabase.from('budget_items').update(data).eq('id', data.id).select().single()
   }
