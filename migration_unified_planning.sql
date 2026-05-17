@@ -33,8 +33,9 @@ BEGIN
     LEAST(COALESCE(v_item.due_day, 15), 28)
   );
 
+  -- budget_items é family-share (sem user_id). Pega user_id do ciclo, que tem.
   INSERT INTO bills (user_id, budget_item_id, name, amount, due_date, is_fixed, recurrence, alert_days_before)
-  VALUES (v_item.user_id, v_item.id, v_item.name, v_item.planned_amount, v_due_date,
+  VALUES (v_cycle.user_id, v_item.id, v_item.name, v_item.planned_amount, v_due_date,
           v_item.is_fixed,
           CASE WHEN v_item.recurrence = 'once' THEN 'none' ELSE v_item.recurrence END,
           3)
