@@ -115,6 +115,9 @@ export const payBill = ({ billId, accountId, amount, date, paymentSource, catego
     p_payment_source: paymentSource, p_category_id: categoryId, p_budget_item_id: budgetItemId,
   })
 
+export const unpayBill = (billId) =>
+  supabase.rpc('unpay_bill', { p_bill_id: billId })
+
 export const deleteBill = (id) =>
   supabase.from('bills').delete().eq('id', id)
 
