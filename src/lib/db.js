@@ -107,9 +107,6 @@ export const upsertBill = (bill) => {
   return supabase.from('bills').insert(data).select().single()
 }
 
-export const markBillPaid = (id, paid = true) =>
-  supabase.from('bills').update({ is_paid: paid }).eq('id', id)
-
 export const payBill = ({ billId, accountId, amount, date, paymentSource, categoryId, budgetItemId }) =>
   supabase.rpc('pay_bill', {
     p_bill_id: billId, p_account_id: accountId, p_amount: amount, p_date: date,
