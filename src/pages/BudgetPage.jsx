@@ -56,7 +56,7 @@ function ItemModal({ initial, categories, accounts = [], defaultBucket, onClose,
           <label className="label">Categoria</label>
           <select className="input" value={form.category_id} onChange={e => set('category_id', e.target.value)}>
             <option value="">Selecionar...</option>
-            {categories.map(c => (
+            {categories.filter(c => ['essential','variable','investment'].includes(c.type)).map(c => (
               <option key={c.id} value={c.id}>
                 [{TYPE_LABELS[c.type] || '—'}] {c.icon} {c.name}
               </option>
