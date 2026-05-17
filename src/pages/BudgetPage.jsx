@@ -5,6 +5,7 @@ import { upsertBudgetItem, unpayBill, payBill } from '../lib/db'
 import {
   PAYMENT_SOURCE_LABELS,
   BUDGET_ITEM_PAYMENT_SOURCES,
+  BUDGET_ITEM_CATEGORY_TYPES,
   bucketOf,
 } from '../lib/budgetEngine'
 import SelectionPopup from '../components/planning/SelectionPopup'
@@ -56,7 +57,7 @@ function ItemModal({ initial, categories, accounts = [], defaultBucket, onClose,
           <label className="label">Categoria</label>
           <select className="input" value={form.category_id} onChange={e => set('category_id', e.target.value)}>
             <option value="">Selecionar...</option>
-            {categories.filter(c => ['essential','variable','investment'].includes(c.type)).map(c => (
+            {categories.filter(c => BUDGET_ITEM_CATEGORY_TYPES.includes(c.type)).map(c => (
               <option key={c.id} value={c.id}>
                 [{TYPE_LABELS[c.type] || '—'}] {c.icon} {c.name}
               </option>

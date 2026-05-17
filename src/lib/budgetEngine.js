@@ -10,6 +10,10 @@ export const PAYMENT_SOURCE_ORDER = ['fixed_income', 'variable_income', 'credit'
 // Fontes válidas para itens do orçamento (a reserva é só para despesas não planejadas)
 export const BUDGET_ITEM_PAYMENT_SOURCES = ['fixed_income', 'variable_income', 'credit']
 
+// Tipos de categoria válidos pra items de despesa no Planejamento.
+// Income/reserve ficam fora — esses categorias existem mas só são usadas em Transactions.
+export const BUDGET_ITEM_CATEGORY_TYPES = ['essential', 'variable', 'investment']
+
 export const BUCKET_LABELS = { income: 'Renda', credit: 'Crédito', reserve: 'Reserva' }
 
 export function bucketOf(source) {
