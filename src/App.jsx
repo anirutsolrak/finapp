@@ -7,7 +7,6 @@ import UpdatePrompt from './components/UpdatePrompt'
 import LoginPage from './pages/LoginPage'
 import DashboardPage from './pages/DashboardPage'
 import TransactionsPage from './pages/TransactionsPage'
-import BillsPage from './pages/BillsPage'
 import GoalsPage from './pages/GoalsPage'
 import BudgetPage from './pages/BudgetPage'
 import ChatPage from './pages/ChatPage'
@@ -28,7 +27,6 @@ function AppRoutes() {
       <Route path="/" element={<PrivateRoute><Layout /></PrivateRoute>}>
         <Route index element={<DashboardPage />} />
         <Route path="transactions" element={<TransactionsPage />} />
-        <Route path="bills" element={<BillsPage />} />
         <Route path="goals" element={<GoalsPage />} />
         <Route path="budget" element={<BudgetPage />} />
         <Route path="lista" element={<ListaPage />} />

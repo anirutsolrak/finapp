@@ -8,7 +8,6 @@ const SIDEBAR_NAV = [
   { to: '/transactions', icon: Receipt,         label: 'Lançamentos' },
   { to: '/lista',        icon: ShoppingCart,    label: 'Lista' },
   { to: '/budget',       icon: PieChart,        label: 'Planejamento' },
-  { to: '/bills',        icon: Bell,            label: 'Agenda de pagamentos' },
   { to: '/goals',        icon: Target,          label: 'Metas' },
   { to: '/chat',         icon: MessageCircle,   label: 'Assistente IA' },
   { to: '/settings',     icon: Settings,        label: 'Configurações' },
@@ -18,7 +17,6 @@ const BOTTOM_TABS = [
   { to: '/',             icon: LayoutDashboard, label: 'Início' },
   { to: '/transactions', icon: Receipt,         label: 'Lançamentos' },
   { to: '/lista',        icon: ShoppingCart,    label: 'Lista' },
-  { to: '/bills',        icon: Bell,            label: 'Agenda' },
   { to: '/budget',       icon: PieChart,        label: 'Planejamento' },
 ]
 
