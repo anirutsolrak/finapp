@@ -19,8 +19,9 @@ export const upsertBudgetItem = (item) => {
 }
 
 export const deleteBudgetItem = async (id) => {
-  // Cascade: apaga lembretes (bills) que espelham este item — não faz sentido manter o aviso sem o planejamento.
-  await supabase.from('bills').delete().eq('budget_item_id', id)
+  // Cascade ajustado: bills não-pagas viram lixo (apaga), pagas preservam histórico (FK vai pra NULL).
+  await supabase.from('bills').delete().eq('budget_item_id', id).eq('is_paid', false)
+  await supabase.from('bills').update({ budget_item_id: null }).eq('budget_item_id', id).eq('is_paid', true)
   return supabase.from('budget_items').update({ active: false }).eq('id', id)
 }
 
