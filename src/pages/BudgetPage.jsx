@@ -198,20 +198,29 @@ export default function BudgetPage() {
 
   async function confirmPayNow() {
     setSubmitting(true); setDialogError('')
-    const missing = selectedItems.filter(i => !i.default_account_id).map(i => i.name)
+    const toPay = selectedItems.filter(i => i.bill && !i.bill.is_paid)
+    if (toPay.length === 0) {
+      setSelected(new Set()); setConfirming(false); setSubmitting(false); refetch()
+      return
+    }
+    const missing = toPay.filter(i => {
+      if (!i.default_account_id) return true
+      const acct = accounts.find(a => a.id === i.default_account_id)
+      return !acct || acct.is_active === false
+    }).map(i => i.name)
     if (missing.length > 0) {
       setDialogError('Estes items precisam de conta default antes:\n  • ' + missing.join('\n  • ') + '\nEdite cada um (lápis) e tente de novo.')
       setSubmitting(false); return
     }
     const today = dfFormat(new Date(), 'yyyy-MM-dd')
-    const results = await Promise.all(selectedItems.map(i => payBill({
+    const results = await Promise.all(toPay.map(i => payBill({
       billId: i.bill.id, accountId: i.default_account_id, amount: i.bill.amount,
       date: today, paymentSource: i.payment_source, categoryId: i.category_id, budgetItemId: i.id,
     })))
     setSubmitting(false)
     const failed = results.filter(r => r.error)
     if (failed.length > 0) {
-      setDialogError(`${failed.length} de ${results.length} falharam. Mantive selecionados pra retry.`)
+      setDialogError(`${failed.length} de ${toPay.length} falharam. Mantive selecionados pra retry.`)
       return
     }
     setSelected(new Set()); setConfirming(false); refetch()
