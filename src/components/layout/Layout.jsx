@@ -1,5 +1,6 @@
 import { Outlet, NavLink } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
+import { useSelection } from '../../contexts/SelectionContext'
 import { LayoutDashboard, Receipt, Bell, Target, PieChart, MessageCircle, Settings, LogOut, DollarSign, ShoppingCart } from 'lucide-react'
 import DateRangeSelector from '../DateRangeSelector'
 
@@ -22,6 +23,7 @@ const BOTTOM_TABS = [
 
 export default function Layout() {
   const { profile, signOut } = useAuth()
+  const { active: selectionActive } = useSelection()
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -69,7 +71,7 @@ export default function Layout() {
 
       {/* ── Mobile Bottom Tab Bar ── */}
       <nav
-        className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-gray-900 border-t border-gray-800"
+        className={`fixed bottom-0 left-0 right-0 z-50 md:hidden bg-gray-900 border-t border-gray-800${selectionActive ? ' hidden' : ''}`}
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
         <div className="flex">
