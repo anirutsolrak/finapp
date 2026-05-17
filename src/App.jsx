@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { DateRangeProvider } from './contexts/DateRangeContext'
+import { SelectionProvider } from './contexts/SelectionContext'
 import Layout from './components/layout/Layout'
 import InstallPrompt from './components/InstallPrompt'
 import UpdatePrompt from './components/UpdatePrompt'
@@ -44,7 +45,9 @@ export default function App() {
       <UpdatePrompt />
       <AuthProvider>
         <DateRangeProvider>
-          <AppRoutes />
+          <SelectionProvider>
+            <AppRoutes />
+          </SelectionProvider>
         </DateRangeProvider>
       </AuthProvider>
     </BrowserRouter>
