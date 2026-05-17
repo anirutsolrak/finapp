@@ -162,10 +162,8 @@ export default function BudgetPage() {
   }
 
   // Sincroniza com SelectionContext (esconde bottom nav mobile)
-  useEffect(() => {
-    setActive(selected.size > 0)
-    return () => setActive(false)
-  }, [selected.size, setActive])
+  useEffect(() => { setActive(selected.size > 0) }, [selected.size, setActive])
+  useEffect(() => () => setActive(false), [setActive])
 
   const selectedItems = items.filter(i => i.bill?.id && selected.has(i.bill.id))
   const selectedTotal = selectedItems.reduce((a, i) => a + Number(i.bill?.amount || 0), 0)
