@@ -17,7 +17,7 @@ function statusLabel(bill) {
 //   - bill paga (is_paid=true): click confirma e chama onUnpay (mantém flow single)
 //   - bill não paga + selected: click chama onToggleSelect (remove da selecao)
 //   - bill não paga + não selected: click chama onToggleSelect (adiciona à selecao)
-export default function PlanItemRow({ item, selected, onToggleSelect, onUnpay, onEdit }) {
+export default function PlanItemRow({ item, isSelected, onToggleSelect, onUnpay, onEdit }) {
   const bill = item.bill
   const st = statusLabel(bill)
   const isPaid = bill?.is_paid
@@ -30,18 +30,18 @@ export default function PlanItemRow({ item, selected, onToggleSelect, onUnpay, o
 
   const icon = isPaid
     ? <CheckCircle2 size={22}/>
-    : selected
+    : isSelected
       ? <CheckSquare size={22}/>
       : <Circle size={22}/>
 
   const iconColor = isPaid
     ? 'text-emerald-400'
-    : selected
+    : isSelected
       ? 'text-emerald-400'
       : bill ? 'text-gray-600 hover:text-emerald-400' : 'text-gray-800'
 
   return (
-    <div className={`flex items-center gap-3 p-3 rounded-xl border ${isPaid ? 'bg-gray-900 border-gray-800 opacity-70' : selected ? 'bg-emerald-500/5 border-emerald-500/30' : 'bg-gray-900 border-gray-800'}`}>
+    <div className={`flex items-center gap-3 p-3 rounded-xl border ${isPaid ? 'bg-gray-900 border-gray-800 opacity-70' : isSelected ? 'bg-emerald-500/5 border-emerald-500/30' : 'bg-gray-900 border-gray-800'}`}>
       <button
         onClick={handleClick}
         disabled={!bill}

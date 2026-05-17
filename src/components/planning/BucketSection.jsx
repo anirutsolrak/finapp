@@ -22,7 +22,7 @@ export default function BucketSection({ label, items, selected, onToggleSelect, 
         <div className="mt-3 pt-3 border-t border-gray-800 space-y-2">
           {items.map(i => (
             <PlanItemRow key={i.id} item={i}
-              selected={selected.has(i.bill?.id)}
+              isSelected={selected.has(i.bill?.id)}
               onToggleSelect={onToggleSelect}
               onUnpay={onUnpay}
               onEdit={onEdit}/>
