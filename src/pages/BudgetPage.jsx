@@ -1,15 +1,19 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Plus } from 'lucide-react'
 import { useBudget } from '../hooks/useData'
-import { upsertBudgetItem, unpayBill } from '../lib/db'
+import { upsertBudgetItem, unpayBill, payBill } from '../lib/db'
 import {
   PAYMENT_SOURCE_LABELS,
   BUDGET_ITEM_PAYMENT_SOURCES,
   bucketOf,
 } from '../lib/budgetEngine'
-import PayBillModal from '../components/PayBillModal'
+import SelectionPopup from '../components/planning/SelectionPopup'
+import ConfirmPayDialog from '../components/planning/ConfirmPayDialog'
 import BucketSection from '../components/planning/BucketSection'
 import PlanningHeader from '../components/planning/PlanningHeader'
+import { useSelection } from '../contexts/SelectionContext'
+import { supabase } from '../lib/supabase'
+import { format as dfFormat } from 'date-fns'
 
 const TYPE_LABELS = { income: 'Receita', investment: 'Investimento', essential: 'Essencial', variable: 'Variável', installment: 'Parcela/Empréstimo', reserve: 'Reserva' }
 const EMPTY = { name: '', planned_amount: '', is_fixed: false, due_day: '', recurrence: 'monthly', notes: '', category_id: '', active: true, payment_source: 'fixed_income', default_account_id: null }
@@ -137,8 +141,12 @@ function ItemModal({ initial, categories, accounts = [], defaultBucket, onClose,
 
 export default function BudgetPage() {
   const { items, categories, accounts, loading, refetch } = useBudget()
+  const { setActive } = useSelection()
   const [editing, setEditing] = useState(null)
-  const [payingItem, setPayingItem] = useState(null)
+  const [selected, setSelected] = useState(new Set())
+  const [confirming, setConfirming] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [dialogError, setDialogError] = useState('')
   const [filter, setFilter] = useState('all')
 
   const filtered = items.filter(i => {
@@ -152,14 +160,61 @@ export default function BudgetPage() {
     once:   filtered.filter(i => i.recurrence === 'once'),
   }
 
-  async function handleTogglePaid(item) {
+  // Sincroniza com SelectionContext (esconde bottom nav mobile)
+  useEffect(() => {
+    setActive(selected.size > 0)
+    return () => setActive(false)
+  }, [selected.size, setActive])
+
+  const selectedItems = items.filter(i => i.bill?.id && selected.has(i.bill.id))
+  const selectedTotal = selectedItems.reduce((a, i) => a + Number(i.bill?.amount || 0), 0)
+
+  function toggleSelect(item) {
     if (!item.bill) return
-    if (item.bill.is_paid) {
-      if (!confirm(`Desmarcar "${item.name}" como pago? A transação vinculada será removida.`)) return
-      await unpayBill(item.bill.id); refetch()
-    } else {
-      setPayingItem(item)
+    setSelected(prev => {
+      const next = new Set(prev)
+      if (next.has(item.bill.id)) next.delete(item.bill.id)
+      else next.add(item.bill.id)
+      return next
+    })
+  }
+
+  async function handleUnpay(item) {
+    if (!item.bill) return
+    if (!confirm(`Desmarcar "${item.name}" como pago? A transação vinculada será removida.`)) return
+    await unpayBill(item.bill.id); refetch()
+  }
+
+  async function confirmAlreadyImported() {
+    setSubmitting(true); setDialogError('')
+    const ids = [...selected]
+    const { error } = await supabase.from('bills')
+      .update({ is_paid: true, paid_at: new Date().toISOString() })
+      .in('id', ids)
+    setSubmitting(false)
+    if (error) { setDialogError(error.message || 'Falha ao atualizar bills.'); return }
+    setSelected(new Set()); setConfirming(false); refetch()
+  }
+
+  async function confirmPayNow() {
+    setSubmitting(true); setDialogError('')
+    const missing = selectedItems.filter(i => !i.default_account_id).map(i => i.name)
+    if (missing.length > 0) {
+      setDialogError('Estes items precisam de conta default antes:\n  • ' + missing.join('\n  • ') + '\nEdite cada um (lápis) e tente de novo.')
+      setSubmitting(false); return
     }
+    const today = dfFormat(new Date(), 'yyyy-MM-dd')
+    const results = await Promise.all(selectedItems.map(i => payBill({
+      billId: i.bill.id, accountId: i.default_account_id, amount: i.bill.amount,
+      date: today, paymentSource: i.payment_source, categoryId: i.category_id, budgetItemId: i.id,
+    })))
+    setSubmitting(false)
+    const failed = results.filter(r => r.error)
+    if (failed.length > 0) {
+      setDialogError(`${failed.length} de ${results.length} falharam. Mantive selecionados pra retry.`)
+      return
+    }
+    setSelected(new Set()); setConfirming(false); refetch()
   }
 
   return (
@@ -186,9 +241,12 @@ export default function BudgetPage() {
         <div className="space-y-2">{[...Array(4)].map((_, i) => <div key={i} className="card h-20 animate-pulse bg-gray-800"/>)}</div>
       ) : (
         <div className="space-y-3">
-          <BucketSection label="Renda" items={byBucket.income} onTogglePaid={handleTogglePaid} onEdit={setEditing}/>
-          <BucketSection label="Crédito" items={byBucket.credit} onTogglePaid={handleTogglePaid} onEdit={setEditing}/>
-          <BucketSection label="Únicos" items={byBucket.once} onTogglePaid={handleTogglePaid} onEdit={setEditing} defaultOpen={false}/>
+          <BucketSection label="Renda" items={byBucket.income}
+            selected={selected} onToggleSelect={toggleSelect} onUnpay={handleUnpay} onEdit={setEditing}/>
+          <BucketSection label="Crédito" items={byBucket.credit}
+            selected={selected} onToggleSelect={toggleSelect} onUnpay={handleUnpay} onEdit={setEditing}/>
+          <BucketSection label="Únicos" items={byBucket.once}
+            selected={selected} onToggleSelect={toggleSelect} onUnpay={handleUnpay} onEdit={setEditing} defaultOpen={false}/>
         </div>
       )}
 
@@ -196,9 +254,22 @@ export default function BudgetPage() {
         <ItemModal initial={editing} categories={categories} accounts={accounts}
                    onClose={() => setEditing(null)} onSaved={refetch}/>
       )}
-      {payingItem && (
-        <PayBillModal bill={payingItem.bill} item={payingItem} accounts={accounts}
-                      onClose={() => setPayingItem(null)} onPaid={refetch}/>
+      <SelectionPopup
+        count={selected.size}
+        total={selectedTotal}
+        onClear={() => setSelected(new Set())}
+        onConfirm={() => setConfirming(true)}
+        disabled={submitting}
+      />
+      {confirming && (
+        <ConfirmPayDialog
+          items={selectedItems}
+          onAlreadyImported={confirmAlreadyImported}
+          onPayNow={confirmPayNow}
+          onCancel={() => { setConfirming(false); setDialogError('') }}
+          submitting={submitting}
+          error={dialogError}
+        />
       )}
     </div>
   )
