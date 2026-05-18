@@ -293,12 +293,17 @@ export default function TransactionsPage() {
 
     const totals = { income: 0, expense: 0, investment: 0, transfer: 0 }
     let gastoHoje = 0, gastoSemana = 0
+    // bankIn/bankOut = fluxo da conta corrente (exclui crédito). Usado em Entrou/Saiu/Líquido.
+    let bankIn = 0, bankOut = 0
     const transferByCat = {}
     const investmentByCat = {}
 
     for (const t of transactions) {
       const amt = Number(t.amount) || 0
       totals[t.type] = (totals[t.type] || 0) + amt
+      const isBank = bucketOf(t.payment_source) !== 'credit'
+      if (t.type === 'income'  && isBank) bankIn  += amt
+      if (t.type === 'expense' && isBank) bankOut += amt
       if (t.type === 'expense' && bucketOf(t.payment_source) === 'income') {
         const d = parseISO(t.date)
         if (t.date === todayStr) gastoHoje += amt
@@ -322,9 +327,9 @@ export default function TransactionsPage() {
       orcamentoSemana: incomeSnap.mediaDiaria * 7,
       transferByCat,
       investmentByCat,
-      entrou: totals.income,
-      saiu: totals.expense,
-      liquido: totals.income - totals.expense,
+      entrou: bankIn,
+      saiu: bankOut,
+      liquido: bankIn - bankOut,
     }
   }, [transactions, incomeSnap])
 
@@ -409,22 +414,27 @@ export default function TransactionsPage() {
         </div>
       )}
 
-      {/* Bloco 3 — Consolidado */}
-      <div className="card flex items-center justify-between flex-wrap gap-2">
-        <div className="flex items-center gap-1.5">
-          <TrendingUp size={14} className="text-emerald-400"/>
-          <span className="text-xs text-gray-500">Entrou</span>
-          <span className="text-sm font-bold text-emerald-400">{fmt(metrics.entrou)}</span>
+      {/* Bloco 3 — Consolidado (apenas conta corrente; credito sai da lista abaixo) */}
+      <div className="card">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div className="flex items-center gap-1.5">
+            <TrendingUp size={14} className="text-emerald-400"/>
+            <span className="text-xs text-gray-500">Entrou</span>
+            <span className="text-sm font-bold text-emerald-400">{fmt(metrics.entrou)}</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <TrendingDown size={14} className="text-red-400"/>
+            <span className="text-xs text-gray-500">Saiu</span>
+            <span className="text-sm font-bold text-red-400">{fmt(metrics.saiu)}</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-gray-500">Líquido</span>
+            <span className={`text-sm font-bold ${metrics.liquido >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{fmt(metrics.liquido)}</span>
+          </div>
         </div>
-        <div className="flex items-center gap-1.5">
-          <TrendingDown size={14} className="text-red-400"/>
-          <span className="text-xs text-gray-500">Saiu</span>
-          <span className="text-sm font-bold text-red-400">{fmt(metrics.saiu)}</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="text-xs text-gray-500">Líquido</span>
-          <span className={`text-sm font-bold ${metrics.liquido >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{fmt(metrics.liquido)}</span>
-        </div>
+        <p className="text-[10px] text-gray-600 mt-2 leading-snug">
+          Apenas movimentações da conta corrente. Compras no crédito aparecem na lista abaixo mas não somam aqui — o limite do cartão é controlado separadamente no Dashboard.
+        </p>
       </div>
 
       {/* Filter */}
