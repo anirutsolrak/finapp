@@ -95,6 +95,39 @@ export const getBillsByRange = (startDate, endDate) =>
     .lte('due_date', endDate)
     .order('due_date')
 
+// Planejamento per-período: bills de um único month_ref (1 bill por item).
+export const getBillsByMonthRef = (monthRef) =>
+  supabase
+    .from('bills')
+    .select('*, budget_items(active, payment_source)')
+    .eq('month_ref', monthRef)
+    .order('due_date')
+
+// Edita os campos de planejamento de UMA bill (escopo do período), sem mexer no template.
+export const updateBillPlanned = (billId, fields) =>
+  supabase.from('bills').update(fields).eq('id', billId).select().single()
+
+// Materializa (client-side) a bill de um item para um month_ref específico, a partir do template.
+// ON CONFLICT DO NOTHING: nunca sobrescreve uma bill existente (preserva paga/customizada).
+export const createBillForPeriod = async ({ item, monthRef, amount, name, dueDay }) => {
+  const { data: { user } } = await supabase.auth.getUser()
+  const day = String(Math.min(Number(dueDay ?? item?.due_day ?? 15) || 15, 28)).padStart(2, '0')
+  const payload = {
+    user_id: user?.id,
+    budget_item_id: item.id,
+    name: name ?? item.name,
+    amount: amount ?? item.planned_amount,
+    due_date: `${monthRef}-${day}`,
+    month_ref: monthRef,
+    is_fixed: item.is_fixed ?? false,
+    recurrence: item.recurrence === 'once' ? 'none' : (item.recurrence || 'monthly'),
+    alert_days_before: 3,
+  }
+  return supabase
+    .from('bills')
+    .upsert(payload, { onConflict: 'budget_item_id,month_ref', ignoreDuplicates: true })
+}
+
 export const getUpcomingBills = (days = 7) => {
   const today = format(new Date(), 'yyyy-MM-dd')
   const future = format(new Date(Date.now() + days * 86400000), 'yyyy-MM-dd')

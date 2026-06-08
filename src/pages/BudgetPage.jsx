@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
-import { Plus } from 'lucide-react'
+import { Plus, ChevronUp, ChevronDown, Edit2 } from 'lucide-react'
 import { useBudget } from '../hooks/useData'
-import { upsertBudgetItem, unpayBill, payBill } from '../lib/db'
+import { upsertBudgetItem, unpayBill, payBill, updateBillPlanned, createBillForPeriod, deleteBill, deleteBudgetItem } from '../lib/db'
 import {
   PAYMENT_SOURCE_LABELS,
   BUDGET_ITEM_PAYMENT_SOURCES,
@@ -14,17 +14,35 @@ import BucketSection from '../components/planning/BucketSection'
 import PlanningHeader from '../components/planning/PlanningHeader'
 import { useSelection } from '../contexts/SelectionContext'
 import { supabase } from '../lib/supabase'
-import { format as dfFormat } from 'date-fns'
+import { format as dfFormat, addMonths } from 'date-fns'
+import { ptBR } from 'date-fns/locale'
+
+// Opções do seletor de mês do Planejamento: de 1 mês atrás até 4 à frente.
+function monthOptions(base = new Date()) {
+  const opts = []
+  for (let i = -1; i <= 4; i++) {
+    const d = addMonths(base, i)
+    opts.push({ value: dfFormat(d, 'yyyy-MM'), label: dfFormat(d, 'MMM/yyyy', { locale: ptBR }) })
+  }
+  return opts
+}
+
+const TEMPLATE_FIELDS = ['category_id', 'payment_source', 'is_fixed', 'default_account_id', 'recurrence', 'notes']
 
 const TYPE_LABELS = { income: 'Receita', investment: 'Investimento', essential: 'Essencial', variable: 'Variável', installment: 'Parcela/Empréstimo', reserve: 'Reserva' }
 const EMPTY = { name: '', planned_amount: '', is_fixed: false, due_day: '', recurrence: 'monthly', notes: '', category_id: '', active: true, payment_source: 'fixed_income', default_account_id: null }
 
-function ItemModal({ initial, categories, accounts = [], defaultBucket, onClose, onSaved }) {
+function ItemModal({ initial, categories, accounts = [], defaultBucket, monthRef, onClose, onSaved }) {
   const [form, setForm] = useState(() => {
-    if (initial?.id) return { ...EMPTY, ...initial, planned_amount: initial.planned_amount ?? '' }
+    if (initial?.id) {
+      // Per-período: o valor exibido é o da bill do mês em foco (se existir), não o do template.
+      const amount = initial.bill ? initial.bill.amount : initial.planned_amount
+      return { ...EMPTY, ...initial, planned_amount: amount ?? '' }
+    }
     return { ...EMPTY, payment_source: defaultBucket === 'credit' ? 'credit' : 'fixed_income' }
   })
   const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState('')
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
@@ -37,21 +55,69 @@ function ItemModal({ initial, categories, accounts = [], defaultBucket, onClose,
     if (!form.category_id) return setError('Selecione uma categoria.')
     if (!form.payment_source) return setError('Selecione a fonte de pagamento.')
     setSaving(true)
-    const { categories: _c, ...cleanForm } = form
-    const { error: err } = await upsertBudgetItem({
-      ...cleanForm,
-      planned_amount: parseFloat(cleanForm.planned_amount),
-      due_day: cleanForm.due_day ? parseInt(cleanForm.due_day) : null,
-    })
-    if (err) setError(err.message)
-    else { onSaved(); onClose() }
-    setSaving(false)
+    const amount = parseFloat(form.planned_amount)
+    const dueDay = form.due_day ? parseInt(form.due_day) : null
+    const due_date = `${monthRef}-${String(Math.min(dueDay || 15, 28)).padStart(2, '0')}`
+
+    try {
+      if (!initial?.id) {
+        // NOVO: cria o template + a bill do mês em foco.
+        const { categories: _c, bill: _b, ...clean } = form
+        const { data: item, error: e1 } = await upsertBudgetItem({ ...clean, planned_amount: amount, due_day: dueDay })
+        if (e1) throw e1
+        const { error: e2 } = await createBillForPeriod({ item, monthRef, amount, name: form.name, dueDay })
+        if (e2) throw e2
+      } else {
+        // EDIÇÃO per-período: valor/nome/vencimento vão pra bill do mês (não cascateia).
+        if (initial.bill) {
+          const { error } = await updateBillPlanned(initial.bill.id, { amount, name: form.name, due_date })
+          if (error) throw error
+        } else {
+          const { error } = await createBillForPeriod({ item: initial, monthRef, amount, name: form.name, dueDay })
+          if (error) throw error
+        }
+        // Template só é tocado se mudou campo estrutural (evita a trigger resetar o ciclo vigente).
+        const changed = TEMPLATE_FIELDS.some(k => (form[k] ?? null) !== (initial[k] ?? null))
+        if (changed) {
+          const { categories: _c, bill: _b, planned_amount: _p, ...clean } = form
+          const { error } = await upsertBudgetItem({ ...clean, id: initial.id, due_day: dueDay })
+          if (error) throw error
+        }
+      }
+      onSaved(); onClose()
+    } catch (err) {
+      setError(err.message || 'Falha ao salvar.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function removeFromPeriod() {
+    if (!initial?.bill) return
+    if (initial.bill.is_paid) return setError('Bill paga — desmarque o pagamento antes de excluir.')
+    if (!confirm(`Excluir "${initial.name}" só do mês em foco? O template e os outros meses ficam intactos.`)) return
+    setDeleting(true)
+    const { error } = await deleteBill(initial.bill.id)
+    if (error) { setError(error.message); setDeleting(false); return }
+    onSaved(); onClose()
+  }
+
+  async function removeTemplate() {
+    if (!initial?.id) return
+    if (!confirm(`Excluir "${initial.name}" de TODOS os meses (desativa o template)? Bills pagas viram histórico.`)) return
+    setDeleting(true)
+    const { error } = await deleteBudgetItem(initial.id)
+    if (error) { setError(error.message); setDeleting(false); return }
+    onSaved(); onClose()
   }
 
   return (
     <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/60 p-4" onClick={onClose}>
       <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-md p-5 space-y-4 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-        <h2 className="font-bold text-lg text-white">{form.id ? 'Editar' : 'Novo'} item</h2>
+        <div>
+          <h2 className="font-bold text-lg text-white">{form.id ? 'Editar' : 'Novo'} item</h2>
+          <p className="text-xs text-gray-500">Mês em foco: <strong className="text-gray-300">{monthRef}</strong> — valor/vencimento valem só pra este mês.</p>
+        </div>
 
         <div>
           <label className="label">Categoria</label>
@@ -129,10 +195,18 @@ function ItemModal({ initial, categories, accounts = [], defaultBucket, onClose,
           </div>
         )}
 
-        {initial?.bill?.is_paid && Number(form.planned_amount) !== Number(initial.bill.amount) && (
+        {initial?.bill?.is_paid && (
           <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3">
             <p className="text-xs text-amber-300">
-              ⚠ A bill deste ciclo já está paga. Mudanças no valor só valem a partir do próximo ciclo.
+              ⚠ A bill deste mês já está paga. Desmarque o pagamento antes de mexer no valor.
+            </p>
+          </div>
+        )}
+
+        {initial?.id && TEMPLATE_FIELDS.some(k => (form[k] ?? null) !== (initial[k] ?? null)) && (
+          <div className="bg-sky-500/10 border border-sky-500/30 rounded-lg p-3">
+            <p className="text-xs text-sky-300">
+              ℹ Você mudou categoria/fonte/recorrência — isso altera o <strong>template</strong> (todos os meses).
             </p>
           </div>
         )}
@@ -141,15 +215,77 @@ function ItemModal({ initial, categories, accounts = [], defaultBucket, onClose,
 
         <div className="flex gap-2 pt-1">
           <button onClick={onClose} className="btn-ghost flex-1">Cancelar</button>
-          <button onClick={save} disabled={saving} className="btn-primary flex-1">{saving ? 'Salvando...' : 'Salvar'}</button>
+          <button onClick={save} disabled={saving || deleting} className="btn-primary flex-1">{saving ? 'Salvando...' : 'Salvar'}</button>
         </div>
+
+        {initial?.id && (
+          <div className="flex flex-col gap-1 pt-2 border-t border-gray-800">
+            {initial.bill && (
+              <button onClick={removeFromPeriod} disabled={deleting || saving}
+                className="text-xs text-gray-400 hover:text-red-400 py-1.5 text-left">
+                Excluir só do mês {monthRef}
+              </button>
+            )}
+            <button onClick={removeTemplate} disabled={deleting || saving}
+              className="text-xs text-gray-500 hover:text-red-400 py-1.5 text-left">
+              Excluir item de todos os meses (desativa template)
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )
 }
 
+const fmtBRL = (v) => `R$ ${Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+
+// Itens ativos do template que ainda não têm conta no mês em foco.
+// Permite "puxar" um item pro mês (cria a bill) — completa o fluxo per-período.
+function TemplatesSection({ items, monthRef, onAdd, onEdit }) {
+  const [open, setOpen] = useState(false)
+  const [adding, setAdding] = useState(null)
+  if (items.length === 0) return null
+
+  async function add(item) {
+    setAdding(item.id)
+    await onAdd(item)
+    setAdding(null)
+  }
+
+  return (
+    <div className="card overflow-hidden">
+      <button onClick={() => setOpen(o => !o)} className="w-full flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          {open ? <ChevronUp size={16} className="text-gray-500"/> : <ChevronDown size={16} className="text-gray-500"/>}
+          <p className="font-semibold text-gray-400">Itens do template <span className="text-gray-600 font-normal">(sem conta em {monthRef})</span></p>
+          <span className="badge bg-gray-800 text-gray-400">{items.length}</span>
+        </div>
+      </button>
+      {open && (
+        <div className="mt-3 pt-3 border-t border-gray-800 space-y-2">
+          {items.map(i => (
+            <div key={i.id} className="flex items-center gap-3 p-3 rounded-xl border bg-gray-900 border-gray-800">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-gray-300 truncate">{i.name}</p>
+                <p className="text-xs text-gray-600">{fmtBRL(i.planned_amount)} no template</p>
+              </div>
+              <button onClick={() => onEdit(i)} className="text-gray-600 hover:text-gray-400 p-1"><Edit2 size={14}/></button>
+              <button onClick={() => add(i)} disabled={adding === i.id}
+                className="text-xs font-medium px-2.5 py-1.5 rounded-lg border border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10 disabled:opacity-50">
+                {adding === i.id ? '...' : '+ Adicionar a este mês'}
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function BudgetPage() {
-  const { items, categories, accounts, loading, refetch } = useBudget()
+  const months = monthOptions()
+  const [monthRef, setMonthRef] = useState(() => dfFormat(new Date(), 'yyyy-MM'))
+  const { items, categories, accounts, loading, refetch } = useBudget(monthRef)
   const { setActive } = useSelection()
   const [editing, setEditing] = useState(null)
   const [selected, setSelected] = useState(new Set())
@@ -158,7 +294,12 @@ export default function BudgetPage() {
   const [dialogError, setDialogError] = useState('')
   const [filter, setFilter] = useState('all')
 
-  const filtered = items.filter(i => {
+  // Per-período: o plano do mês = itens COM bill no mês em foco.
+  const inMonth = items.filter(i => i.bill)
+  // Templates ativos que ainda não têm conta neste mês (podem ser puxados).
+  const templates = items.filter(i => !i.bill)
+
+  const filtered = inMonth.filter(i => {
     if (filter === 'pending') return !i.bill?.is_paid
     if (filter === 'paid') return i.bill?.is_paid
     return true
@@ -190,6 +331,12 @@ export default function BudgetPage() {
     if (!item.bill) return
     if (!confirm(`Desmarcar "${item.name}" como pago? A transação vinculada será removida.`)) return
     await unpayBill(item.bill.id); refetch()
+  }
+
+  async function addToMonth(item) {
+    const { error } = await createBillForPeriod({ item, monthRef })
+    if (error) { alert('Falha ao adicionar: ' + error.message); return }
+    refetch()
   }
 
   async function confirmAlreadyImported() {
@@ -242,7 +389,14 @@ export default function BudgetPage() {
         </button>
       </div>
 
-      <PlanningHeader items={items}/>
+      <div className="flex items-center gap-2">
+        <label className="text-xs text-gray-500">Mês:</label>
+        <select className="input w-auto py-1.5 text-sm" value={monthRef} onChange={e => { setMonthRef(e.target.value); setSelected(new Set()) }}>
+          {months.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+        </select>
+      </div>
+
+      <PlanningHeader items={inMonth}/>
 
       <div className="flex gap-2">
         {[['all','Todos'],['pending','Pendentes'],['paid','Pagos']].map(([v, l]) => (
@@ -263,11 +417,15 @@ export default function BudgetPage() {
             selected={selected} onToggleSelect={toggleSelect} onUnpay={handleUnpay} onEdit={setEditing}/>
           <BucketSection label="Únicos" items={byBucket.once}
             selected={selected} onToggleSelect={toggleSelect} onUnpay={handleUnpay} onEdit={setEditing} defaultOpen={false}/>
+
+          {templates.length > 0 && (
+            <TemplatesSection items={templates} monthRef={monthRef} onAdd={addToMonth} onEdit={setEditing}/>
+          )}
         </div>
       )}
 
       {editing !== null && (
-        <ItemModal initial={editing} categories={categories} accounts={accounts}
+        <ItemModal initial={editing} categories={categories} accounts={accounts} monthRef={monthRef}
                    onClose={() => setEditing(null)} onSaved={refetch}/>
       )}
       <SelectionPopup

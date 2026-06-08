@@ -259,28 +259,28 @@ export function useAccountSnapshots(transactions = [], accounts = []) {
   }), [accounts, transactions])
 }
 
-// Carrega budget_items + bills do ciclo atual, joinados no client.
-// Cada item ganha .bill (a bill do ciclo atual, se materializada).
-export function useBudget() {
-  const { range } = useDateRange()
+// Carrega budget_items + bills de UM month_ref (período em foco no Planejamento),
+// joinados no client. Cada item ganha .bill (a bill daquele month_ref, se existir).
+// Per-período: o month_ref vem do seletor da tela, não do range global.
+export function useBudget(monthRef) {
   const [data, setData] = useState({ items: [], bills: [], categories: [], accounts: [] })
   const [loading, setLoading] = useState(true)
 
   const load = useCallback(async () => {
-    if (!range) return
+    if (!monthRef) return
     setLoading(true)
     const [{ data: items }, { data: bills }, { data: cats }, { data: accts }] = await Promise.all([
       db.getBudgetItems(),
-      db.getBillsByRange(range.startDate, range.endDate),
+      db.getBillsByMonthRef(monthRef),
       db.getCategories(),
       db.getAccounts(),
     ])
-    // Join: cada item recebe .bill (1 bill por month_ref via unique constraint)
+    // Join 1:1 — unique constraint (budget_item_id, month_ref) garante no máx. 1 bill por item.
     const billByItemId = new Map((bills || []).map(b => [b.budget_item_id, b]))
     const itemsWithBill = (items || []).map(i => ({ ...i, bill: billByItemId.get(i.id) || null }))
     setData({ items: itemsWithBill, bills: bills || [], categories: cats || [], accounts: accts || [] })
     setLoading(false)
-  }, [range])
+  }, [monthRef])
 
   useEffect(() => { load() }, [load])
 
