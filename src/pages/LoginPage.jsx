@@ -1,3 +1,4 @@
+// ─── LoginPage — entrada/cadastro (e-mail+senha via Supabase Auth) ───────────
 import { useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { DollarSign, LogIn, UserPlus, Eye, EyeOff, Mail } from 'lucide-react'

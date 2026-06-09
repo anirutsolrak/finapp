@@ -1,3 +1,8 @@
+// ═══════════════════════════════════════════════════════════════════════════
+// budgetEngine — motor de cálculo PURO (sem I/O). Recebe ciclo/itens/tx/contas
+// e devolve os snapshots de cada bucket (renda/crédito/reserva) e por conta.
+// É o coração financeiro do app e o que os testes cobrem — mexa com cuidado.
+// ═══════════════════════════════════════════════════════════════════════════
 import { differenceInCalendarDays, format, startOfWeek, parseISO, isBefore } from 'date-fns'
 
 export const PAYMENT_SOURCE_LABELS = {

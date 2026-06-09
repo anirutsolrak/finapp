@@ -1,3 +1,4 @@
+// ─── supabase.js — cliente único do Supabase (Auth + PostgREST + Realtime) ───
 import { createClient } from '@supabase/supabase-js'
 
 export const supabase = createClient(

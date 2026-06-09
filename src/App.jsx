@@ -1,3 +1,7 @@
+// ═══════════════════════════════════════════════════════════════════════════
+// App — raiz da aplicação: providers globais + tabela de rotas.
+// Tudo que é "estado de sessão" (auth, ciclo/período, seleção) é injetado aqui.
+// ═══════════════════════════════════════════════════════════════════════════
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { DateRangeProvider } from './contexts/DateRangeContext'
@@ -14,12 +18,14 @@ import ChatPage from './pages/ChatPage'
 import SettingsPage from './pages/SettingsPage'
 import ListaPage from './pages/ListaPage'
 
+// ─── Guarda de rota: exige usuário logado ───────────────────────────────────
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth()
   if (loading) return <div className="flex items-center justify-center min-h-screen"><div className="w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"/></div>
   return user ? children : <Navigate to="/login" replace />
 }
 
+// ─── Tabela de rotas ────────────────────────────────────────────────────────
 function AppRoutes() {
   const { user } = useAuth()
   return (
@@ -38,6 +44,7 @@ function AppRoutes() {
   )
 }
 
+// ─── Raiz: ordem dos providers importa (Auth → DateRange → Selection) ───────
 export default function App() {
   return (
     <BrowserRouter>

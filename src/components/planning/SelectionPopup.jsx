@@ -1,3 +1,4 @@
+// ─── SelectionPopup — barra fixa de ação da seleção em massa (count + CTAs) ──
 import { X, Check } from 'lucide-react'
 
 const fmt = (v) => `R$ ${Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`

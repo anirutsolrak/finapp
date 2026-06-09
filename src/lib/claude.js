@@ -1,3 +1,8 @@
+// ═══════════════════════════════════════════════════════════════════════════
+// claude.js — integração com a IA (Claude). Monta o prompt com o contexto
+// financeiro, chama a Edge Function `claude-proxy` (que guarda a chave da
+// Anthropic) e extrai a <ACTION> estruturada que o app aplica.
+// ═══════════════════════════════════════════════════════════════════════════
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 
@@ -86,6 +91,7 @@ Para MÚLTIPLOS itens do mesmo tipo, use "items" como array:
 8. Use os snapshots de Renda/Crédito/Reserva para embasar recomendações sobre ritmo de gasto, ajuste de meta semanal e atingimento de metas.`
 }
 
+// ─── Chamada à Edge Function ─────────────────────────────────────────────────
 export async function sendToClaudeAPI(messages, systemPrompt) {
   const resp = await fetch(EDGE_FN_URL, {
     method: 'POST',
@@ -112,6 +118,7 @@ export async function sendToClaudeAPI(messages, systemPrompt) {
   return data.content?.[0]?.text || ''
 }
 
+// ─── Parsing da ACTION sugerida pela IA ──────────────────────────────────────
 export function extractAction(text) {
   const match = text.match(/<ACTION>([\s\S]*?)<\/ACTION>/)
   if (!match) return null

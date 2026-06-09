@@ -1,3 +1,8 @@
+// ═══════════════════════════════════════════════════════════════════════════
+// TransactionsPage — lista e CRUD de lançamentos. Filtros por período, seleção
+// em massa e atalho pra "pagar contas". É a tela mais densa do app.
+// Estrutura: helpers/labels → subcomponentes → página principal (no fim).
+// ═══════════════════════════════════════════════════════════════════════════
 import { useState, useMemo } from 'react'
 import { format, parseISO, startOfWeek, isAfter, isBefore } from 'date-fns'
 import { Plus, Trash2, Edit2, TrendingUp, TrendingDown, ArrowRightLeft, Sparkles, Activity, Upload } from 'lucide-react'
@@ -247,6 +252,7 @@ function TxModal({ onClose, onSaved, initial, categories, userId, reservaSnapsho
   )
 }
 
+// ─── Página ──────────────────────────────────────────────────────────────────
 export default function TransactionsPage() {
   const { range, cycles } = useDateRange()
   const currentCycle = useMemo(

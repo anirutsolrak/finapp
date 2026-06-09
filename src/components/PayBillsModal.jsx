@@ -1,3 +1,7 @@
+// ═══════════════════════════════════════════════════════════════════════════
+// PayBillsModal — pagamento em lote de cartões/empréstimos a partir do saldo
+// devedor do grupo de contas. Gera as transações de pagamento.
+// ═══════════════════════════════════════════════════════════════════════════
 import { useState, useMemo } from 'react'
 import { format } from 'date-fns'
 import { X, CreditCard, Repeat } from 'lucide-react'

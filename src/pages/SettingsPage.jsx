@@ -1,3 +1,7 @@
+// ═══════════════════════════════════════════════════════════════════════════
+// SettingsPage — perfil, preferências e gestão de contas/cartões.
+// Estrutura: labels/constantes → AccountModal → página principal (no fim).
+// ═══════════════════════════════════════════════════════════════════════════
 import { useState, useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
@@ -164,6 +168,7 @@ function AccountModal({ initial, userId, onClose, onSaved }) {
   )
 }
 
+// ─── Página ──────────────────────────────────────────────────────────────────
 export default function SettingsPage() {
   const { user, profile, fetchProfile } = useAuth()
   const [form, setForm] = useState({ full_name: '', notify_email: '' })

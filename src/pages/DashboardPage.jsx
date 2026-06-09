@@ -1,3 +1,8 @@
+// ═══════════════════════════════════════════════════════════════════════════
+// DashboardPage — visão geral do mês. KPIs por bucket (renda/crédito/reserva),
+// saldos por grupo de conta, contas a vencer e saúde do gasto.
+// Estrutura: helpers de formato → cards auxiliares → página principal (no fim).
+// ═══════════════════════════════════════════════════════════════════════════
 import { useState, useMemo } from 'react'
 import { format, differenceInDays, parseISO, startOfWeek, isBefore, isAfter } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -51,6 +56,7 @@ function BillAlert({ bill }) {
   )
 }
 
+// ─── Página ──────────────────────────────────────────────────────────────────
 export default function DashboardPage() {
   const { profile, user } = useAuth()
   const { data, loading } = useDashboard()

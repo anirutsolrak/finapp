@@ -1,3 +1,4 @@
+// ─── DateRangeSelector — dropdown do período/ciclo global (presets + custom) ─
 import { useState, useRef, useEffect } from 'react'
 import { ChevronDown, Calendar, Check } from 'lucide-react'
 import { useDateRange } from '../contexts/DateRangeContext'

@@ -1,3 +1,7 @@
+// ═══════════════════════════════════════════════════════════════════════════
+// CSVImporterModal — importação de extrato/fatura Nubank. Faz parse do CSV,
+// categoriza via IA, deixa revisar e grava as transações.
+// ═══════════════════════════════════════════════════════════════════════════
 import { useState, useMemo } from 'react'
 import { X, Upload, FileText, AlertTriangle, Sparkles } from 'lucide-react'
 import { parseExtrato, parseFatura } from '../lib/nubankCSV'

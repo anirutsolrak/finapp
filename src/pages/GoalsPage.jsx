@@ -1,3 +1,7 @@
+// ═══════════════════════════════════════════════════════════════════════════
+// GoalsPage — metas financeiras. Progresso vem do vínculo de transações
+// (goal_id). Estrutura: GoalModal → página principal (no fim).
+// ═══════════════════════════════════════════════════════════════════════════
 import { useState, useMemo } from 'react'
 import { Plus, Trash2, Edit2, Target, Lock, CheckCircle2, Moon } from 'lucide-react'
 import { useGoals, useGoalLinkedTransactions, useCycles, useTransactionsByCycle } from '../hooks/useData'
@@ -89,6 +93,7 @@ function GoalModal({ initial, onClose, onSaved, userId }) {
   )
 }
 
+// ─── Página ──────────────────────────────────────────────────────────────────
 export default function GoalsPage() {
   const { goals, loading, refetch } = useGoals()
   const { transactions: linkedTxs } = useGoalLinkedTransactions()

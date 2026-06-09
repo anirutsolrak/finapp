@@ -1,3 +1,7 @@
+// ═══════════════════════════════════════════════════════════════════════════
+// AuthContext — sessão do usuário. Expõe user/profile/loading e as ações de
+// auth (signIn/signUp/signOut). Reage a onAuthStateChange do Supabase.
+// ═══════════════════════════════════════════════════════════════════════════
 import { createContext, useContext, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 

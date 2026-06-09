@@ -1,3 +1,7 @@
+// ═══════════════════════════════════════════════════════════════════════════
+// Layout — casca autenticada: navegação (sidebar desktop / bottom-nav mobile),
+// seletor de período no topo e <Outlet/> das rotas filhas.
+// ═══════════════════════════════════════════════════════════════════════════
 import { Outlet, NavLink } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { useSelection } from '../../contexts/SelectionContext'

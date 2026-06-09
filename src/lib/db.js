@@ -1,3 +1,8 @@
+// ═══════════════════════════════════════════════════════════════════════════
+// db.js — camada de acesso a dados. Todas as queries PostgREST e RPCs do app
+// ficam aqui (uma função por operação). As telas/hooks chamam estas funções;
+// é o único lugar que conhece nomes de tabela e formato de payload.
+// ═══════════════════════════════════════════════════════════════════════════
 import { supabase } from './supabase'
 import { format, subMonths } from 'date-fns'
 import { computeBucketSnapshot, computeReservaSnapshot } from './budgetEngine'

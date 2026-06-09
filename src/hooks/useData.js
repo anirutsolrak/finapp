@@ -1,3 +1,8 @@
+// ═══════════════════════════════════════════════════════════════════════════
+// useData — hooks de dados do app. Cada hook carrega de src/lib/db e assina
+// Realtime (postgres_changes): qualquer mutação refaz o fetch automaticamente.
+// É aqui que se mexe pra mudar O QUE cada tela carrega.
+// ═══════════════════════════════════════════════════════════════════════════
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import * as db from '../lib/db'
 import { supabase } from '../lib/supabase'
@@ -231,6 +236,7 @@ export function useAccounts() {
   return { accounts, loading, refetch: load }
 }
 
+// ─── Derivados (memo, sem I/O) ───────────────────────────────────────────────
 // Agrega snapshots por grupo (banks / cards / loans / envelope) a partir de transactions.
 // Recebe accounts como argumento (caller faz useAccounts uma única vez) pra evitar
 // double-subscribe no canal realtime 'accounts'.

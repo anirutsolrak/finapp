@@ -1,3 +1,8 @@
+// ═══════════════════════════════════════════════════════════════════════════
+// dateRange — lógica do período/ciclo global (presets, persistência local).
+// Resolve presets (ciclo atual, este mês, últimos 30/90d) em {startDate,endDate}
+// e guarda a escolha no localStorage. Consumido pelo DateRangeContext.
+// ═══════════════════════════════════════════════════════════════════════════
 import { format, parseISO, startOfMonth, endOfMonth, subMonths, subDays } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 

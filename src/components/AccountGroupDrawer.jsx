@@ -1,3 +1,4 @@
+// ─── AccountGroupDrawer — detalhe das contas de um grupo (banco/cartão/etc) ──
 import { X, Wallet, CreditCard, Repeat, Mail } from 'lucide-react'
 
 const fmt = (v) => {

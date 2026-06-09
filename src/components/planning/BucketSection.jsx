@@ -1,3 +1,4 @@
+// ─── BucketSection — grupo recolhível de itens de um bucket no Planejamento ──
 import { useState } from 'react'
 import { ChevronDown, ChevronUp } from 'lucide-react'
 import PlanItemRow from './PlanItemRow'

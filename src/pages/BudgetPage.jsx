@@ -1,3 +1,8 @@
+// ═══════════════════════════════════════════════════════════════════════════
+// BudgetPage — Planejamento per-período. Itens de orçamento de um month_ref,
+// materialização/edição de bills no escopo do período, ciclo e reserva.
+// Estrutura: helpers → ItemModal → página principal (no fim).
+// ═══════════════════════════════════════════════════════════════════════════
 import { useState, useEffect } from 'react'
 import { Plus, ChevronUp, ChevronDown, Edit2 } from 'lucide-react'
 import { useBudget } from '../hooks/useData'
@@ -282,6 +287,7 @@ function TemplatesSection({ items, monthRef, onAdd, onEdit }) {
   )
 }
 
+// ─── Página ──────────────────────────────────────────────────────────────────
 export default function BudgetPage() {
   const months = monthOptions()
   const [monthRef, setMonthRef] = useState(() => dfFormat(new Date(), 'yyyy-MM'))

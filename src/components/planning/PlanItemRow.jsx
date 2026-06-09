@@ -1,3 +1,4 @@
+// ─── PlanItemRow — linha de um item no Planejamento (status da bill + ações) ─
 import { differenceInDays, parseISO, format } from 'date-fns'
 import { CheckCircle2, Circle, CheckSquare, Edit2, Lock } from 'lucide-react'
 

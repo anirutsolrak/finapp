@@ -1,3 +1,8 @@
+// ═══════════════════════════════════════════════════════════════════════════
+// DateRangeContext — período/ciclo GLOBAL do app. Mantém a lista de ciclos, o
+// range selecionado (persistido + sincronizado entre abas) e expõe setRange.
+// Todas as telas leem o período daqui via useDateRange().
+// ═══════════════════════════════════════════════════════════════════════════
 import { createContext, useContext, useEffect, useState, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import {

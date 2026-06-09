@@ -1,3 +1,4 @@
+// ─── InstallPrompt — banner de "instalar PWA" (com instruções iOS) ───────────
 import { useState, useEffect } from 'react'
 import { Download, X, Share } from 'lucide-react'
 

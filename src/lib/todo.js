@@ -1,3 +1,4 @@
+// ─── todo.js — acesso ao schema `todo` (lista de compras/tarefas) ────────────
 import { supabase } from './supabase'
 
 export const getTodoItems = () =>

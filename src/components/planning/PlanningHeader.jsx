@@ -1,3 +1,4 @@
+// ─── PlanningHeader — resumo do período (planejado / pago / pendente) ────────
 const fmt = (v) => `R$ ${Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
 export default function PlanningHeader({ items }) {

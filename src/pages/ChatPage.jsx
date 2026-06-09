@@ -1,3 +1,8 @@
+// ═══════════════════════════════════════════════════════════════════════════
+// ChatPage — assistente IA. Monta o contexto financeiro, conversa com o Claude
+// e aplica a <ACTION> sugerida (criar transação/meta/bill/item).
+// Estrutura: subcomponentes de UI → página principal (no fim).
+// ═══════════════════════════════════════════════════════════════════════════
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { format } from 'date-fns'
 import { Send, Plus, Loader2, Bot, User, CheckCircle, Edit2, Trash2, Sparkles } from 'lucide-react'
@@ -126,6 +131,7 @@ const QUICK_PROMPTS = [
   '💡 Onde posso economizar?',
 ]
 
+// ─── Página ──────────────────────────────────────────────────────────────────
 export default function ChatPage() {
   const { user, profile } = useAuth()
   const [messages, setMessages] = useState([])

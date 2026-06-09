@@ -1,3 +1,8 @@
+// ═══════════════════════════════════════════════════════════════════════════
+// ListaPage — lista de compras/tarefas (schema todo). Itens concluídos podem
+// ser importados em lote como transações.
+// Estrutura: helpers → ImportModal → página principal (no fim).
+// ═══════════════════════════════════════════════════════════════════════════
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -204,6 +209,7 @@ function ImportModal({ items, cycle, categories, userId, onClose, onDone }) {
   )
 }
 
+// ─── Página ──────────────────────────────────────────────────────────────────
 export default function ListaPage() {
   const { user } = useAuth()
   const { range, cycles } = useDateRange()

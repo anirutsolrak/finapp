@@ -1,3 +1,4 @@
+// ─── SelectionContext — modo "seleção em massa" (toggle global de Transações) ─
 import { createContext, useContext, useState } from 'react'
 
 const SelectionCtx = createContext({ active: false, setActive: () => {} })
