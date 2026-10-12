@@ -5,24 +5,14 @@
 import { Outlet, NavLink } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { useSelection } from '../../contexts/SelectionContext'
-import { LayoutDashboard, Receipt, Bell, Target, PieChart, MessageCircle, Settings, LogOut, DollarSign, ShoppingCart } from 'lucide-react'
+import { Receipt, Target, Settings, LogOut, DollarSign } from 'lucide-react'
 import DateRangeSelector from '../DateRangeSelector'
 
-const SIDEBAR_NAV = [
-  { to: '/',             icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/transactions', icon: Receipt,         label: 'Lançamentos' },
-  { to: '/lista',        icon: ShoppingCart,    label: 'Lista' },
-  { to: '/budget',       icon: PieChart,        label: 'Planejamento' },
-  { to: '/goals',        icon: Target,          label: 'Metas' },
-  { to: '/chat',         icon: MessageCircle,   label: 'Assistente IA' },
-  { to: '/settings',     icon: Settings,        label: 'Configurações' },
-]
-
-const BOTTOM_TABS = [
-  { to: '/',             icon: LayoutDashboard, label: 'Início' },
-  { to: '/transactions', icon: Receipt,         label: 'Lançamentos' },
-  { to: '/lista',        icon: ShoppingCart,    label: 'Lista' },
-  { to: '/budget',       icon: PieChart,        label: 'Planejamento' },
+// Mesma lista na sidebar (desktop) e na barra inferior (mobile).
+const NAV = [
+  { to: '/',         icon: Receipt,  label: 'Planejamento' },
+  { to: '/goals',    icon: Target,   label: 'Metas' },
+  { to: '/settings', icon: Settings, label: 'Configurações' },
 ]
 
 export default function Layout() {
@@ -45,7 +35,7 @@ export default function Layout() {
         </div>
 
         <nav className="flex flex-col gap-1 flex-1">
-          {SIDEBAR_NAV.map(({ to, icon: Icon, label }) => (
+          {NAV.map(({ to, icon: Icon, label }) => (
             <NavLink key={to} to={to} end={to === '/'}
               className={({ isActive }) =>
                 `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${isActive
@@ -79,7 +69,7 @@ export default function Layout() {
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
         <div className="flex">
-          {BOTTOM_TABS.map(({ to, icon: Icon, label }) => (
+          {NAV.map(({ to, icon: Icon, label }) => (
             <NavLink key={to} to={to} end={to === '/'}
               className={({ isActive }) =>
                 `flex-1 flex flex-col items-center justify-center py-2 gap-0.5 transition-colors ${

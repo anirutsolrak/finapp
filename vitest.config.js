@@ -8,5 +8,7 @@ export default defineConfig({
     globals: true,
     setupFiles: ['./src/test/setup.js'],
     css: false,
+    // .claude/worktrees guarda cópias antigas do repo, com os próprios testes
+    exclude: ['**/node_modules/**', '**/dist/**', '.claude/**'],
   },
 })

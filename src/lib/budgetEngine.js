@@ -200,29 +200,3 @@ export function computeAccountSnapshot({ account, transactions = [] }) {
     pctComprometido,
   }
 }
-
-/**
- * Agregado por grupo de contas (bank / credit_card / loan / envelope).
- * `filter` é uma função (account) => boolean.
- */
-export function computeAccountsGroupSnapshot({ accounts = [], transactions = [], filter }) {
-  const contasFiltradas = accounts.filter(a => a.is_active !== false).filter(filter)
-  const snapshots = contasFiltradas.map(account => computeAccountSnapshot({ account, transactions }))
-
-  const saldoTotal = snapshots.reduce((a, s) => a + s.saldoAtual, 0)
-  const entradasTotal = snapshots.reduce((a, s) => a + s.entradas, 0)
-  const saidasTotal = snapshots.reduce((a, s) => a + s.saidas, 0)
-  const usadoTotal = snapshots.reduce((a, s) => a + s.usado, 0)
-  const limiteTotal = snapshots.reduce((a, s) => a + s.limite, 0)
-  const pctComprometidoTotal = limiteTotal > 0 ? (usadoTotal / limiteTotal) * 100 : null
-
-  return {
-    contas: snapshots,
-    saldoTotal,
-    entradasTotal,
-    saidasTotal,
-    usadoTotal,
-    limiteTotal,
-    pctComprometidoTotal,
-  }
-}

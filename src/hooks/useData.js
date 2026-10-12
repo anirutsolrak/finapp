@@ -3,49 +3,10 @@
 // Realtime (postgres_changes): qualquer mutação refaz o fetch automaticamente.
 // É aqui que se mexe pra mudar O QUE cada tela carrega.
 // ═══════════════════════════════════════════════════════════════════════════
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import * as db from '../lib/db'
 import { supabase } from '../lib/supabase'
-import { computeAccountsGroupSnapshot } from '../lib/budgetEngine'
 import { useDateRange } from '../contexts/DateRangeContext'
-
-export function useDashboard() {
-  const { range, cycles } = useDateRange()
-  const [data, setData] = useState(null)
-  const [loading, setLoading] = useState(true)
-
-  const load = useCallback(async () => {
-    if (!range) return
-    setLoading(true)
-    const [{ data: bills }, { data: goals }, { data: items }, { data: txs }, { data: accountTxs }] = await Promise.all([
-      db.getBillsByRange(range.startDate, range.endDate),
-      db.getGoals(),
-      db.getBudgetItems(),
-      db.getTransactionsByRange(range.startDate, range.endDate),
-      db.getAccountTransactions(),
-    ])
-    const cycle = (cycles || []).find(c =>
-      c.start_date === range.startDate && c.end_date === range.endDate
-    ) || null
-    setData({ bills, goals, budgetItems: items, cycle, transactions: txs, accountTransactions: accountTxs })
-    setLoading(false)
-  }, [range, cycles])
-
-  useEffect(() => { load() }, [load])
-
-  // Realtime
-  useEffect(() => {
-    const ch = supabase.channel('dashboard')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions' }, load)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'bills' }, load)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'budget_items' }, load)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'budget_cycles' }, load)
-      .subscribe()
-    return () => supabase.removeChannel(ch)
-  }, [load])
-
-  return { data, loading, refetch: load }
-}
 
 export function useTransactions() {
   const { range } = useDateRange()
@@ -234,35 +195,6 @@ export function useAccounts() {
   }, [load])
 
   return { accounts, loading, refetch: load }
-}
-
-// ─── Derivados (memo, sem I/O) ───────────────────────────────────────────────
-// Agrega snapshots por grupo (banks / cards / loans / envelope) a partir de transactions.
-// Recebe accounts como argumento (caller faz useAccounts uma única vez) pra evitar
-// double-subscribe no canal realtime 'accounts'.
-export function useAccountSnapshots(transactions = [], accounts = []) {
-  return useMemo(() => ({
-    banks: computeAccountsGroupSnapshot({
-      accounts,
-      transactions,
-      filter: a => a.type === 'bank',
-    }),
-    cards: computeAccountsGroupSnapshot({
-      accounts,
-      transactions,
-      filter: a => a.type === 'credit' && a.subtype === 'credit_card',
-    }),
-    loans: computeAccountsGroupSnapshot({
-      accounts,
-      transactions,
-      filter: a => a.type === 'credit' && a.subtype === 'loan',
-    }),
-    envelope: computeAccountsGroupSnapshot({
-      accounts,
-      transactions,
-      filter: a => a.type === 'envelope',
-    }),
-  }), [accounts, transactions])
 }
 
 // Carrega budget_items + bills de UM month_ref (período em foco no Planejamento),

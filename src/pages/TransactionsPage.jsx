@@ -439,7 +439,7 @@ export default function TransactionsPage() {
           </div>
         </div>
         <p className="text-[10px] text-gray-600 mt-2 leading-snug">
-          Apenas movimentações da conta corrente. Compras no crédito aparecem na lista abaixo mas não somam aqui — o limite do cartão é controlado separadamente no Dashboard.
+          Apenas movimentações da conta corrente. Compras no crédito aparecem na lista abaixo mas não somam aqui.
         </p>
       </div>
 

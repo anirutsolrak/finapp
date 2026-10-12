@@ -10,13 +10,9 @@ import Layout from './components/layout/Layout'
 import InstallPrompt from './components/InstallPrompt'
 import UpdatePrompt from './components/UpdatePrompt'
 import LoginPage from './pages/LoginPage'
-import DashboardPage from './pages/DashboardPage'
-import TransactionsPage from './pages/TransactionsPage'
+import CombinedPlanningPage from './pages/CombinedPlanningPage'
 import GoalsPage from './pages/GoalsPage'
-import BudgetPage from './pages/BudgetPage'
-import ChatPage from './pages/ChatPage'
 import SettingsPage from './pages/SettingsPage'
-import ListaPage from './pages/ListaPage'
 
 // ─── Guarda de rota: exige usuário logado ───────────────────────────────────
 function PrivateRoute({ children }) {
@@ -32,14 +28,12 @@ function AppRoutes() {
     <Routes>
       <Route path="/login" element={user ? <Navigate to="/" replace /> : <LoginPage />} />
       <Route path="/" element={<PrivateRoute><Layout /></PrivateRoute>}>
-        <Route index element={<DashboardPage />} />
-        <Route path="transactions" element={<TransactionsPage />} />
+        <Route index element={<CombinedPlanningPage />} />
         <Route path="goals" element={<GoalsPage />} />
-        <Route path="budget" element={<BudgetPage />} />
-        <Route path="lista" element={<ListaPage />} />
-        <Route path="chat" element={<ChatPage />} />
         <Route path="settings" element={<SettingsPage />} />
       </Route>
+      {/* Rotas removidas (/budget, /lista, /chat...) salvas no celular caem na tela principal */}
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )
 }

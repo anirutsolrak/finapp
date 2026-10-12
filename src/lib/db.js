@@ -5,7 +5,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 import { supabase } from './supabase'
 import { format, subMonths } from 'date-fns'
-import { computeBucketSnapshot, computeReservaSnapshot } from './budgetEngine'
+import { computeReservaSnapshot } from './budgetEngine'
 
 // ─── CATEGORIES ─────────────────────────────────────────────────────────────
 export const getCategories = () =>
@@ -50,15 +50,6 @@ export const getTransactionsByRange = (startDate, endDate) =>
     .lte('date', endDate)
     .order('date', { ascending: false })
 
-// Todas as tx vinculadas a alguma conta — sem filtro de data.
-// Usado pra derivar saldoAtual das contas (computeAccountSnapshot), que precisa
-// somar histórico inteiro pra ficar coerente quando o DateRange muda de ciclo.
-export const getAccountTransactions = () =>
-  supabase
-    .from('transactions')
-    .select('id, type, amount, account_id, from_account_id, to_account_id')
-    .or('account_id.not.is.null,from_account_id.not.is.null,to_account_id.not.is.null')
-
 const withMonthRef = (data) => {
   if (!data.month_ref && data.date) return { ...data, month_ref: String(data.date).slice(0, 7) }
   return data
@@ -74,21 +65,11 @@ export const updateTransaction = (id, tx) => {
   return supabase.from('transactions').update(withMonthRef(data)).eq('id', id).select().single()
 }
 
-export const deleteTransaction = async (id) => {
-  await supabase.schema('todo').from('items')
-    .update({ imported_at: null })
-    .eq('finapp_transaction_id', id)
-  return supabase.from('transactions').delete().eq('id', id)
-}
+export const deleteTransaction = (id) =>
+  supabase.from('transactions').delete().eq('id', id)
 
 // ─── BILLS ──────────────────────────────────────────────────────────────────
 // budget_items(active, payment_source) permite detectar vínculos órfãos (item deletado no Planejamento)
-export const getBills = (monthRef) => {
-  let q = supabase.from('bills').select('*, budget_items(active, payment_source)').order('due_date')
-  if (monthRef) q = q.eq('month_ref', monthRef)
-  return q
-}
-
 export const getAllBills = () =>
   supabase.from('bills').select('*, budget_items(active, payment_source)').order('month_ref', { ascending: false }).order('due_date')
 
@@ -133,20 +114,6 @@ export const createBillForPeriod = async ({ item, monthRef, amount, name, dueDay
     .upsert(payload, { onConflict: 'budget_item_id,month_ref', ignoreDuplicates: true })
 }
 
-export const getUpcomingBills = (days = 7) => {
-  const today = format(new Date(), 'yyyy-MM-dd')
-  const future = format(new Date(Date.now() + days * 86400000), 'yyyy-MM-dd')
-  return supabase.from('bills').select('*, budget_items(active, payment_source)').gte('due_date', today).lte('due_date', future).eq('is_paid', false).order('due_date')
-}
-
-export const upsertBill = (bill) => {
-  const { budget_items, ...data } = bill
-  if (data.id) {
-    return supabase.from('bills').update(data).eq('id', data.id).select().single()
-  }
-  return supabase.from('bills').insert(data).select().single()
-}
-
 export const payBill = ({ billId, accountId, amount, date, paymentSource, categoryId, budgetItemId }) =>
   supabase.rpc('pay_bill', {
     p_bill_id: billId, p_account_id: accountId, p_amount: amount, p_date: date,
@@ -173,16 +140,6 @@ export const upsertGoal = (goal) => {
 export const deleteGoal = (id) =>
   supabase.from('goals').delete().eq('id', id)
 
-// ─── CHAT ────────────────────────────────────────────────────────────────────
-export const getChatMessages = (userId, limit = 50) =>
-  supabase.from('chat_messages').select('*').eq('user_id', userId).order('created_at').limit(limit)
-
-export const saveChatMessage = (msg) =>
-  supabase.from('chat_messages').insert(msg).select().single()
-
-export const clearChat = (userId) =>
-  supabase.from('chat_messages').delete().eq('user_id', userId)
-
 // ─── BUDGET CYCLES ───────────────────────────────────────────────────────────
 export const getBudgetCycle = async (monthRef) => {
   const { data } = await supabase.from('budget_cycles').select('*').eq('month_ref', monthRef).maybeSingle()
@@ -208,34 +165,6 @@ export const computeRolloverReserva = async (monthRef) => {
   const { data: prevTxs } = await getTransactions(prevMonth)
   const snap = computeReservaSnapshot({ cycle: prevCycle, transactions: prevTxs || [] })
   return snap.disponivel
-}
-
-// ─── CONTEXT SNAPSHOT FOR AI ─────────────────────────────────────────────────
-export const getAIContext = async () => {
-  const monthRef = format(new Date(), 'yyyy-MM')
-  const [{ data: items }, { data: txs }, { data: goals }, { data: upcoming }, { data: monthBills }, cycle] = await Promise.all([
-    getBudgetItems(),
-    getTransactions(monthRef),
-    getGoals(),
-    getUpcomingBills(10),
-    getBills(monthRef),
-    getBudgetCycle(monthRef),
-  ])
-  const incomeSnapshot = computeBucketSnapshot({ bucket: 'income', cycle, items: items || [], transactions: txs || [], bills: monthBills || [] })
-  const creditSnapshot = computeBucketSnapshot({ bucket: 'credit', cycle, items: items || [], transactions: txs || [], bills: monthBills || [] })
-  const reservaSnapshot = computeReservaSnapshot({ cycle, transactions: txs || [] })
-  return {
-    monthRef,
-    budgetItems: items,
-    transactions: txs,
-    goals,
-    upcomingBills: upcoming,
-    bills: monthBills,
-    cycle,
-    incomeSnapshot,
-    creditSnapshot,
-    reservaSnapshot,
-  }
 }
 
 // ─── ACCOUNTS (Onda 3 — multi-conta) ────────────────────────────────────────

@@ -5,7 +5,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
-import { Save, User, Mail, Bell, Shield, Wallet, Plus, Edit2, EyeOff } from 'lucide-react'
+import { Save, User, Mail, Bell, Wallet, Plus, Edit2, EyeOff } from 'lucide-react'
 import { useAccounts } from '../hooks/useData'
 import { upsertAccount, deactivateAccount } from '../lib/db'
 
@@ -260,12 +260,6 @@ export default function SettingsPage() {
           <li>Toque em Compartilhar ou menu do navegador</li>
           <li>Selecione "Adicionar à tela inicial"</li>
         </ol>
-      </div>
-
-      {/* Segurança */}
-      <div className="card space-y-2">
-        <p className="font-semibold text-white flex items-center gap-2"><Shield size={16}/> Segurança</p>
-        <p className="text-xs text-gray-400">A IA é processada via servidor seguro (Supabase Edge Functions). Nenhuma chave de API fica armazenada no seu dispositivo.</p>
       </div>
 
       <button onClick={saveProfile} disabled={saving} className="btn-primary w-full flex items-center justify-center gap-2">

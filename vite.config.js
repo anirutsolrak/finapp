@@ -11,7 +11,7 @@ export default defineConfig({
       manifest: {
         name: 'FinançasFamília',
         short_name: 'Finanças',
-        description: 'Controle financeiro familiar com IA',
+        description: 'Controle financeiro familiar',
         theme_color: '#10b981',
         background_color: '#030712',
         display: 'standalone',

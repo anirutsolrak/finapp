@@ -1,11 +1,10 @@
 // ═══════════════════════════════════════════════════════════════════════════
 // CSVImporterModal — importação de extrato/fatura Nubank. Faz parse do CSV,
-// categoriza via IA, deixa revisar e grava as transações.
+// deixa revisar (categoria, tipo, duplicatas) e grava as transações.
 // ═══════════════════════════════════════════════════════════════════════════
 import { useState, useMemo } from 'react'
-import { X, Upload, FileText, AlertTriangle, Sparkles } from 'lucide-react'
+import { X, Upload, FileText, AlertTriangle } from 'lucide-react'
 import { parseExtrato, parseFatura } from '../lib/nubankCSV'
-import { categorizeBatch } from '../lib/aiCategorize'
 import { addTransaction, getCategories } from '../lib/db'
 import { supabase } from '../lib/supabase'
 
@@ -37,7 +36,6 @@ export default function CSVImporterModal({ open, accounts, userId, onClose, onSa
   const [accountId, setAccountId] = useState('')
   const [rows, setRows] = useState([])
   const [parseErrors, setParseErrors] = useState([])
-  const [aiUsed, setAiUsed] = useState(false)
   const [categories, setCategories] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -49,7 +47,7 @@ export default function CSVImporterModal({ open, accounts, userId, onClose, onSa
 
   const reset = () => {
     setStep(1); setCsvType('extrato'); setFile(null); setAccountId('')
-    setRows([]); setParseErrors([]); setAiUsed(false); setLoading(false)
+    setRows([]); setParseErrors([]); setLoading(false)
     setError(''); setImportStatus(null)
   }
 
@@ -75,9 +73,6 @@ export default function CSVImporterModal({ open, accounts, userId, onClose, onSa
     const { data: cats } = await getCategories()
     setCategories(cats || [])
 
-    const aiMap = await categorizeBatch(parsed.rows, cats || [])
-    setAiUsed(Object.keys(aiMap).length > 0)
-
     const uniqDates = [...new Set(parsed.rows.map(r => r.date))]
     let existing = []
     if (useAccountId && uniqDates.length > 0) {
@@ -97,7 +92,7 @@ export default function CSVImporterModal({ open, accounts, userId, onClose, onSa
       ...r,
       selected: !isDup(r),
       isDuplicate: isDup(r),
-      categoryId: aiMap[r.description] || null,
+      categoryId: null,
     }))
 
     setRows(enriched)
@@ -213,7 +208,6 @@ export default function CSVImporterModal({ open, accounts, userId, onClose, onSa
             <div className="flex items-center justify-between">
               <p className="text-sm text-gray-400">
                 {rows.length} linhas detectadas
-                {aiUsed && <span className="ml-2 inline-flex items-center gap-1 text-emerald-400 text-xs"><Sparkles size={10}/> IA categorizou</span>}
               </p>
             </div>
 

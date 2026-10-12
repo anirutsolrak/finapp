@@ -195,7 +195,7 @@ function ItemModal({ initial, categories, accounts = [], defaultBucket, monthRef
           <div className="flex items-start gap-2 bg-amber-500/10 border border-amber-500/20 rounded-xl p-3">
             <input type="checkbox" id="bfixed" checked={form.is_fixed} onChange={e => set('is_fixed', e.target.checked)} className="accent-amber-500 w-4 h-4 mt-0.5 flex-shrink-0"/>
             <label htmlFor="bfixed" className="text-sm text-amber-200 cursor-pointer">
-              <strong className="text-amber-400">Item fixo</strong> — protegido no replanejamento da IA.
+              <strong className="text-amber-400">Item fixo</strong> — valor que se repete igual todo mês.
             </label>
           </div>
         )}

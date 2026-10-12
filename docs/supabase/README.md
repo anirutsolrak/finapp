@@ -1,5 +1,10 @@
 # Setup do Supabase — FinAPP
 
+> **Reescrita em andamento:** o código original do app está na branch `legado`
+> (veja o aviso no [README principal](../../README.md)). Estes scripts ainda
+> descrevem o banco completo do `legado`, incluindo tabelas de funcionalidades
+> removidas da `main` (ex.: schema `todo` da Lista). Nada foi apagado do banco.
+
 Scripts SQL para subir o banco do FinAPP do zero. Todos são **idempotentes**
 (podem rodar mais de uma vez sem quebrar) e devem ser executados **na ordem**:
 
