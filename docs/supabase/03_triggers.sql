@@ -39,10 +39,10 @@ create trigger budget_items_upd
   before update on public.budget_items
   for each row execute function public.update_updated_at();
 
+-- O app cria a bill do mês em foco explicitamente (createBillForPeriod). O trigger que
+-- materializava no ciclo atual a cada insert/update do item existia por causa da IA e
+-- recriava contas excluídas "só do mês"; por isso é removido.
 drop trigger if exists materialize_on_item_change on public.budget_items;
-create trigger materialize_on_item_change
-  after insert or update on public.budget_items
-  for each row execute function public.trg_item_materialize();
 
 -- ─── BUDGET_CYCLES ───────────────────────────────────────────────────────────
 drop trigger if exists materialize_on_cycle_change on public.budget_cycles;

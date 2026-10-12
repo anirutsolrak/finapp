@@ -6,6 +6,9 @@ function makeChain(table) {
   chain.delete = () => { fromCalls.push({ table, op: 'delete' }); return chain }
   chain.update = (payload) => { fromCalls.push({ table, op: 'update', payload }); return chain }
   chain.eq = (col, val) => { fromCalls.push({ table, op: 'eq', col, val }); return chain }
+  chain.insert = (payload) => { fromCalls.push({ table, op: 'insert', payload }); return chain }
+  chain.select = () => chain
+  chain.single = () => chain
   chain.then = (resolve) => resolve({ error: null })
   return chain
 }
@@ -17,7 +20,7 @@ vi.mock('./supabase', () => ({
   }
 }))
 
-import { payBill, unpayBill, deleteBudgetItem } from './db'
+import { payBill, unpayBill, deleteBudgetItem, addTransaction, updateTransaction } from './db'
 import { supabase } from './supabase'
 
 describe('payBill', () => {
@@ -63,5 +66,25 @@ describe('deleteBudgetItem', () => {
     const itemPath = fromCalls.filter(c => c.table === 'budget_items')
     expect(itemPath.some(c => c.op === 'update' && c.payload?.active === false)).toBe(true)
     expect(itemPath.some(c => c.op === 'eq' && c.col === 'id' && c.val === 'item-1')).toBe(true)
+  })
+})
+
+describe('lançamentos normalizados', () => {
+  beforeEach(() => { fromCalls.length = 0 })
+  const sent = (op) => fromCalls.find(c => c.table === 'transactions' && c.op === op).payload
+
+  it('mudar a data recalcula month_ref', async () => {
+    await updateTransaction('t1', { type: 'expense', date: '2026-11-03', month_ref: '2026-10', account_id: 'a1' })
+    expect(sent('update').month_ref).toBe('2026-11')
+  })
+
+  it('transferência não grava account_id', async () => {
+    await updateTransaction('t1', { type: 'transfer', date: '2026-10-01', account_id: 'a1', from_account_id: 'a1', to_account_id: 'a2' })
+    expect(sent('update')).toMatchObject({ account_id: null, from_account_id: 'a1', to_account_id: 'a2' })
+  })
+
+  it('despesa não grava contas de origem/destino', async () => {
+    await addTransaction({ type: 'expense', date: '2026-10-01', account_id: 'a1', from_account_id: 'a1', to_account_id: 'a2' })
+    expect(sent('insert')).toMatchObject({ account_id: 'a1', from_account_id: null, to_account_id: null, month_ref: '2026-10' })
   })
 })

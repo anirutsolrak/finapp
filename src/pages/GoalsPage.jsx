@@ -47,8 +47,8 @@ function GoalModal({ initial, onClose, onSaved, userId }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/60 p-4" onClick={onClose}>
-      <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-md p-5 space-y-4 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/60 p-4">
+      <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-md p-5 space-y-4 max-h-[90vh] overflow-y-auto">
         <h2 className="font-bold text-lg text-white">{form.id ? 'Editar' : 'Nova'} Meta</h2>
 
         <div>

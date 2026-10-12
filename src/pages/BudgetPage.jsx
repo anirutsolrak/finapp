@@ -59,6 +59,9 @@ function ItemModal({ initial, categories, accounts = [], defaultBucket, monthRef
     if (!form.planned_amount) return setError('Informe o valor.')
     if (!form.category_id) return setError('Selecione uma categoria.')
     if (!form.payment_source) return setError('Selecione a fonte de pagamento.')
+    if (initial?.bill?.is_paid && parseFloat(form.planned_amount) !== Number(initial.bill.amount)) {
+      return setError('Conta já paga neste mês — desmarque o pagamento antes de mudar o valor.')
+    }
     setSaving(true)
     const amount = parseFloat(form.planned_amount)
     const dueDay = form.due_day ? parseInt(form.due_day) : null
@@ -117,8 +120,8 @@ function ItemModal({ initial, categories, accounts = [], defaultBucket, monthRef
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/60 p-4" onClick={onClose}>
-      <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-md p-5 space-y-4 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/60 p-4">
+      <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-md p-5 space-y-4 max-h-[90vh] overflow-y-auto">
         <div>
           <h2 className="font-bold text-lg text-white">{form.id ? 'Editar' : 'Novo'} item</h2>
           <p className="text-xs text-gray-500">Mês em foco: <strong className="text-gray-300">{monthRef}</strong> — valor/vencimento valem só pra este mês.</p>
@@ -336,7 +339,9 @@ export default function BudgetPage() {
   async function handleUnpay(item) {
     if (!item.bill) return
     if (!confirm(`Desmarcar "${item.name}" como pago? A transação vinculada será removida.`)) return
-    await unpayBill(item.bill.id); refetch()
+    const { error } = await unpayBill(item.bill.id)
+    if (error) alert('Falha ao desmarcar: ' + error.message)
+    refetch()
   }
 
   async function addToMonth(item) {

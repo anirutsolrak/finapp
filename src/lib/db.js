@@ -50,19 +50,21 @@ export const getTransactionsByRange = (startDate, endDate) =>
     .lte('date', endDate)
     .order('date', { ascending: false })
 
-const withMonthRef = (data) => {
-  if (!data.month_ref && data.date) return { ...data, month_ref: String(data.date).slice(0, 7) }
-  return data
-}
+// month_ref sempre segue a data; transferência usa só origem/destino, os demais só account_id.
+const normalizeTx = (data) => ({
+  ...data,
+  ...(data.date && { month_ref: String(data.date).slice(0, 7) }),
+  ...(data.type === 'transfer' ? { account_id: null } : data.type && { from_account_id: null, to_account_id: null }),
+})
 
 export const addTransaction = (tx) => {
   const { categories, budget_items, ...data } = tx
-  return supabase.from('transactions').insert(withMonthRef(data)).select().single()
+  return supabase.from('transactions').insert(normalizeTx(data)).select().single()
 }
 
 export const updateTransaction = (id, tx) => {
   const { categories, budget_items, ...data } = tx
-  return supabase.from('transactions').update(withMonthRef(data)).eq('id', id).select().single()
+  return supabase.from('transactions').update(normalizeTx(data)).eq('id', id).select().single()
 }
 
 export const deleteTransaction = (id) =>

@@ -79,8 +79,8 @@ function AccountModal({ initial, userId, onClose, onSaved }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/60 p-4" onClick={onClose}>
-      <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-md p-5 space-y-4 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/60 p-4">
+      <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-md p-5 space-y-4 max-h-[90vh] overflow-y-auto">
         <h2 className="font-bold text-lg text-white">{form.id ? 'Editar' : 'Nova'} conta</h2>
 
         <div>
@@ -183,16 +183,18 @@ export default function SettingsPage() {
 
   async function saveProfile() {
     setSaving(true)
-    await supabase.from('profiles').update(form).eq('id', user.id)
+    const { error } = await supabase.from('profiles').update(form).eq('id', user.id)
+    setSaving(false)
+    if (error) return alert('Falha ao salvar perfil: ' + error.message)
     await fetchProfile(user.id)
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
-    setSaving(false)
   }
 
   async function handleDeactivate(account) {
     if (!confirm(`Desativar "${account.name}"? As transações existentes mantêm o vínculo.`)) return
-    await deactivateAccount(account.id)
+    const { error } = await deactivateAccount(account.id)
+    if (error) alert('Falha ao desativar: ' + error.message)
     refetchAccounts()
   }
 

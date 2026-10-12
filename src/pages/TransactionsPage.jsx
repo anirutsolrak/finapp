@@ -98,7 +98,6 @@ function TxModal({ onClose, onSaved, initial, categories, userId, reservaSnapsho
       amount: parseFloat(form.amount),
       user_id: userId,
       category_id: form.category_id || null,
-      budget_item_id: null,
       goal_id: form.goal_id || null,
       account_id: form.account_id || null,
       from_account_id: form.from_account_id || null,
@@ -111,8 +110,8 @@ function TxModal({ onClose, onSaved, initial, categories, userId, reservaSnapsho
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/60 p-4" onClick={onClose}>
-      <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-md p-5 space-y-4 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/60 p-4">
+      <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-md p-5 space-y-4 max-h-[90vh] overflow-y-auto">
         <h2 className="font-bold text-lg text-white">{form.id ? 'Editar' : 'Novo'} Lançamento</h2>
 
         <div>
@@ -341,7 +340,8 @@ export default function TransactionsPage() {
 
   async function handleDelete(id) {
     if (!confirm('Excluir este lançamento?')) return
-    await deleteTransaction(id)
+    const { error } = await deleteTransaction(id)
+    if (error) alert('Falha ao excluir: ' + error.message)
     refetch()
   }
 
@@ -360,18 +360,7 @@ export default function TransactionsPage() {
         </div>
       </div>
 
-      {range && cycles.length === 0 && (
-        <div className="card text-center py-8">
-          <p className="text-sm text-gray-400">Nenhum ciclo configurado.</p>
-          <p className="text-xs text-gray-500 mt-1">
-            Vá em <span className="text-emerald-400">Planejamento → Configurar ciclo</span> pra começar.
-          </p>
-        </div>
-      )}
-
-      {currentCycle && (
-        <>
-      {/* Cycle label (sem nav — seletor global controla o período) */}
+      {/* Período em foco (o seletor global no topo controla) */}
       <div className="card flex items-center justify-center">
         <p className="font-semibold text-white">{cycleLabel}</p>
       </div>
@@ -472,7 +461,7 @@ export default function TransactionsPage() {
         <div className="space-y-2">
           {filtered.length === 0 && (
             <div className="card text-center py-10">
-              <p className="text-gray-500 text-sm">Nenhum lançamento neste ciclo.</p>
+              <p className="text-gray-500 text-sm">Nenhum lançamento neste período.</p>
               <button onClick={() => setModal({})} className="text-emerald-400 text-sm hover:text-emerald-300 mt-2">+ Adicionar primeiro</button>
             </div>
           )}
@@ -517,8 +506,6 @@ export default function TransactionsPage() {
             </div>
           ))}
         </div>
-      )}
-        </>
       )}
 
       {modal !== null && (

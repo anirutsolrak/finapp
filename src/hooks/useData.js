@@ -15,7 +15,6 @@ export function useTransactions() {
 
   const load = useCallback(async () => {
     if (!range) return
-    setLoading(true)
     const { data } = await db.getTransactionsByRange(range.startDate, range.endDate)
     setTransactions(data || [])
     setLoading(false)
@@ -41,7 +40,6 @@ export function useTransactionsByCycle(startDate, endDate) {
       setLoading(false)
       return
     }
-    setLoading(true)
     const { data } = await db.getTransactionsByRange(startDate, endDate)
     setTransactions(data || [])
     setLoading(false)
@@ -62,7 +60,6 @@ export function useCycles() {
   const [loading, setLoading] = useState(true)
 
   const load = useCallback(async () => {
-    setLoading(true)
     const { data } = await supabase.from('budget_cycles').select('*').order('start_date', { ascending: false })
     setCycles(data || [])
     setLoading(false)
@@ -86,7 +83,6 @@ export function useBills() {
 
   const load = useCallback(async () => {
     if (!range) return
-    setLoading(true)
     const [{ data: ranged }, { data: all }] = await Promise.all([
       db.getBillsByRange(range.startDate, range.endDate),
       db.getAllBills(),
@@ -111,7 +107,6 @@ export function useGoals() {
   const [loading, setLoading] = useState(true)
 
   const load = useCallback(async () => {
-    setLoading(true)
     const { data } = await db.getGoals()
     setGoals(data || [])
     setLoading(false)
@@ -127,7 +122,6 @@ export function useBudgetItems() {
   const [loading, setLoading] = useState(true)
 
   const load = useCallback(async () => {
-    setLoading(true)
     const [{ data: its }, { data: cats }] = await Promise.all([db.getBudgetItems(), db.getCategories()])
     setItems(its || [])
     setCategories(cats || [])
@@ -157,7 +151,6 @@ export function useGoalLinkedTransactions() {
   const [loading, setLoading] = useState(true)
 
   const load = useCallback(async () => {
-    setLoading(true)
     const { data } = await supabase
       .from('transactions')
       .select('id, amount, type, date, goal_id')
@@ -181,7 +174,6 @@ export function useAccounts() {
   const [loading, setLoading] = useState(true)
 
   const load = useCallback(async () => {
-    setLoading(true)
     const { data } = await db.getAccounts()
     setAccounts(data || [])
     setLoading(false)
@@ -197,6 +189,13 @@ export function useAccounts() {
   return { accounts, loading, refetch: load }
 }
 
+// Visão per-período de um item: nome, valor e dia vêm da bill do mês quando ela existe;
+// sem bill, valem os do template. É o que o modal grava, então é o que a tela precisa ler.
+export function overlayBill(item, bill) {
+  if (!bill) return { ...item, bill: null }
+  return { ...item, name: bill.name, planned_amount: bill.amount, due_day: Number(bill.due_date.slice(8, 10)), bill }
+}
+
 // Carrega budget_items + bills de UM month_ref (período em foco no Planejamento),
 // joinados no client. Cada item ganha .bill (a bill daquele month_ref, se existir).
 // Per-período: o month_ref vem do seletor da tela, não do range global.
@@ -206,7 +205,6 @@ export function useBudget(monthRef) {
 
   const load = useCallback(async () => {
     if (!monthRef) return
-    setLoading(true)
     const [{ data: items }, { data: bills }, { data: cats }, { data: accts }] = await Promise.all([
       db.getBudgetItems(),
       db.getBillsByMonthRef(monthRef),
@@ -215,7 +213,7 @@ export function useBudget(monthRef) {
     ])
     // Join 1:1 — unique constraint (budget_item_id, month_ref) garante no máx. 1 bill por item.
     const billByItemId = new Map((bills || []).map(b => [b.budget_item_id, b]))
-    const itemsWithBill = (items || []).map(i => ({ ...i, bill: billByItemId.get(i.id) || null }))
+    const itemsWithBill = (items || []).map(i => overlayBill(i, billByItemId.get(i.id)))
     setData({ items: itemsWithBill, bills: bills || [], categories: cats || [], accounts: accts || [] })
     setLoading(false)
   }, [monthRef])

@@ -8,8 +8,8 @@ const fmt = (v) => `R$ ${Number(v || 0).toLocaleString('pt-BR', { minimumFractio
 export default function ConfirmPayDialog({ items, onAlreadyImported, onPayNow, onCancel, submitting, error }) {
   const total = items.reduce((a, i) => a + Number(i.bill?.amount || 0), 0)
   return (
-    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/60 p-4" onClick={onCancel}>
-      <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-md p-5 space-y-4" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/60 p-4">
+      <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-md p-5 space-y-4">
         <h2 className="font-bold text-lg text-white">Confirmar {items.length} pagamento{items.length > 1 ? 's' : ''}</h2>
         <p className="text-sm text-gray-300">
           Total: <span className="font-bold text-white">{fmt(total)}</span>
