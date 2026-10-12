@@ -1,12 +1,11 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// Layout — casca autenticada: navegação (sidebar desktop / bottom-nav mobile),
-// seletor de período no topo e <Outlet/> das rotas filhas.
+// Layout — casca autenticada: navegação (sidebar desktop / bottom-nav mobile)
+// e <Outlet/> das rotas filhas.
 // ═══════════════════════════════════════════════════════════════════════════
 import { Outlet, NavLink } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { useSelection } from '../../contexts/SelectionContext'
 import { Receipt, Target, Settings, LogOut, DollarSign } from 'lucide-react'
-import DateRangeSelector from '../DateRangeSelector'
 
 // Mesma lista na sidebar (desktop) e na barra inferior (mobile).
 const NAV = [
@@ -55,10 +54,6 @@ export default function Layout() {
       {/* ── Main Content ── */}
       <main className="flex-1 overflow-y-auto pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0">
         <div className="max-w-5xl mx-auto p-4 md:p-6">
-          {/* Header com seletor de período global */}
-          <div className="flex justify-end mb-3">
-            <DateRangeSelector />
-          </div>
           <Outlet />
         </div>
       </main>

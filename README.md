@@ -45,22 +45,26 @@ importe o extrato do banco para manter tudo em dia — sozinho ou a dois.
 FinAPP é um app de finanças pessoais **compartilhado por uma família**: ambos os
 usuários enxergam e editam os mesmos dados financeiros. O modelo mental é:
 
-1. **Planejar** o mês em *itens de orçamento* (templates de gasto e renda).
-2. Cada item ativo **vira uma conta a pagar** (bill) do ciclo, automaticamente.
-3. **Pagar** uma bill gera um *lançamento*, que reduz o saldo disponível na hora.
-4. **Importar o extrato** do banco completa os lançamentos que faltam.
+1. **Planejar** o mês: cada conta recorrente (template) vira uma *conta a pagar* (bill) do mês.
+2. **Pagar** uma conta gera um *lançamento* — ou só marca como paga, se ele já veio do extrato.
+3. **Importar o extrato** do banco completa os lançamentos e já baixa as contas do plano
+   que batem em mês e valor.
+4. O **saldo por conta** fecha a conferência com o banco.
 
 Tudo é **reativo via Supabase Realtime**: um lançamento feito por um membro
 aparece e recalcula os indicadores do outro em segundos, sem refresh.
 
 ## ✨ Funcionalidades
 
-- **Planejamento** — itens de orçamento por período (`month_ref`), materialização
-  de bills e pagamento de contas (individual ou em lote).
-- **Lançamentos** — CRUD de transações, filtros por período e consolidado do que
-  entrou e saiu da conta corrente.
-- **Importador CSV** — importa extrato e fatura do Nubank, com revisão antes de gravar.
+- **Tela única por mês** — resumo (entrou / saiu / líquido, contas pagas e saldo por
+  conta), plano do mês e lançamentos do mês no mesmo lugar.
+- **Plano do mês** — contas a pagar por período (`month_ref`), pagamento individual ou
+  em lote, contas recorrentes puxadas de um mês para o outro.
+- **Lançamentos** — CRUD de transações com filtro por tipo e conta.
+- **Importador de extrato** — CSV de conta e de fatura do Nubank, com revisão, detecção de
+  duplicatas e conciliação com as contas pendentes do plano.
 - **Metas** — progresso por vínculo de transações (`goal_id`).
+- **Tema** — claro (pastel) e escuro (neutro), seguindo o sistema ou escolhido em Configurações.
 - **PWA** — instalável, com aviso de atualização e cache offline.
 
 ## 🧱 Stack
@@ -73,6 +77,7 @@ aparece e recalcula os indicadores do outro em segundos, sem refresh.
 | PWA | vite-plugin-pwa (Workbox) | app instalável + cache |
 | Backend | Supabase (Postgres) | persistência, Auth, Realtime, RPCs |
 | Estado | hooks + Realtime | carga e sincronização reativa |
+| Tema | variáveis CSS + Tailwind | claro pastel / escuro neutro |
 | Datas | date-fns | manipulação de datas |
 | Testes | Vitest + Testing Library | unit/integração |
 | Deploy | Vercel | hospedagem (SPA rewrite) |
@@ -80,7 +85,7 @@ aparece e recalcula os indicadores do outro em segundos, sem refresh.
 ## 🏗 Arquitetura
 
 ```
-Páginas (src/pages)         → telas
+Páginas (src/pages)         → telas (PlanningPage é a principal)
    ↓ usam
 Hooks (src/hooks/useData)   → carregam dados e assinam Realtime (postgres_changes)
    ↓ chamam
@@ -88,12 +93,14 @@ Data layer (src/lib/db)     → queries PostgREST + RPCs (pay_bill, unpay_bill)
    ↓
 Supabase Postgres           → schema, triggers e RLS (ver docs/supabase)
 
-src/lib/budgetEngine  → motor de cálculo puro (sem I/O), testável
-src/contexts          → Auth, DateRange (ciclo global), Selection (seleção em massa)
+src/lib/budgetEngine  → cálculos puros (resumo do mês, saldo por conta), testados
+src/lib/reconcile     → casa linhas do extrato com contas pendentes do plano
+src/contexts          → Auth, Selection (seleção em massa)
 ```
 
-Não há cache server-side: cada hook reassina as tabelas que lê, então qualquer
-mutação dispara refetch e recomputação dos indicadores.
+O período é sempre **um mês** (`month_ref`): as contas pelo mês de referência, os
+lançamentos pela data dentro do mês. Não há cache server-side: cada hook reassina as
+tabelas que lê, e toda mutação também recarrega explicitamente os dados da tela.
 
 ## 🚀 Rodando localmente
 
@@ -134,11 +141,11 @@ para rodar em ordem, manual (SQL Editor) ou automatizado (Supabase CLI / `psql`)
 
 ```
 src/
-  pages/         Telas (CombinedPlanning → Transactions + Budget, Goals, Settings)
-  components/    UI reutilizável (modais, seletor de período, planning/, layout/)
+  pages/         Telas (Planning, Goals, Settings, Login)
+  components/    UI reutilizável (modais, lista de lançamentos, planning/, layout/)
   hooks/         useData.js — hooks de dados com Realtime
-  contexts/      Auth, DateRange, Selection
-  lib/           db, supabase, budgetEngine, nubankCSV, dateRange
+  contexts/      Auth, Selection
+  lib/           db, supabase, budgetEngine, reconcile, nubankCSV, format
   test/          setup e smoke tests
 docs/
   supabase/      Scripts SQL de setup do banco

@@ -1,7 +1,6 @@
 // ─── ConfirmPayDialog — confirmação de pagamento em lote do Planejamento ─────
 import { AlertCircle } from 'lucide-react'
-
-const fmt = (v) => `R$ ${Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+import { fmt } from '../../lib/format'
 
 // Dialog que aparece após "Confirmar" do SelectionPopup.
 // Pergunta se os items já estão lançados no extrato. 3 CTAs.

@@ -187,8 +187,8 @@ export default function SettingsPage() {
     setTheme(pref)
     if (pref === 'system') localStorage.removeItem('finapp:theme')
     else localStorage.setItem('finapp:theme', pref)
-    document.documentElement.dataset.theme = pref !== 'system' ? pref
-      : matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+    const resolved = pref !== 'system' ? pref : matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+    document.documentElement.setAttribute('data-theme', resolved)
   }
 
   async function saveProfile() {

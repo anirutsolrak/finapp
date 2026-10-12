@@ -1,11 +1,13 @@
 // ═══════════════════════════════════════════════════════════════════════════
 // CSVImporterModal — importação de extrato/fatura Nubank. Faz parse do CSV,
-// deixa revisar (categoria, tipo, duplicatas) e grava as transações.
+// deixa revisar (categoria, tipo, duplicatas), concilia com as contas pendentes do
+// plano (mesmo mês e valor) e grava as transações.
 // ═══════════════════════════════════════════════════════════════════════════
 import { useState, useMemo } from 'react'
 import { X, Upload, FileText, AlertTriangle } from 'lucide-react'
 import { parseExtrato, parseFatura } from '../lib/nubankCSV'
-import { addTransaction, getCategories } from '../lib/db'
+import { addTransaction, getCategories, getUnpaidBills, markBillsPaid } from '../lib/db'
+import { matchBills } from '../lib/reconcile'
 import { supabase } from '../lib/supabase'
 
 const fmt = (v) => {
@@ -37,6 +39,7 @@ export default function CSVImporterModal({ open, accounts, userId, onClose, onSa
   const [rows, setRows] = useState([])
   const [parseErrors, setParseErrors] = useState([])
   const [categories, setCategories] = useState([])
+  const [bills, setBills] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [importStatus, setImportStatus] = useState(null)
@@ -47,7 +50,7 @@ export default function CSVImporterModal({ open, accounts, userId, onClose, onSa
 
   const reset = () => {
     setStep(1); setCsvType('extrato'); setFile(null); setAccountId('')
-    setRows([]); setParseErrors([]); setLoading(false)
+    setRows([]); setBills([]); setParseErrors([]); setLoading(false)
     setError(''); setImportStatus(null)
   }
 
@@ -88,12 +91,15 @@ export default function CSVImporterModal({ open, accounts, userId, onClose, onSa
       e.date === r.date && Number(e.amount).toFixed(2) === Number(r.amount).toFixed(2)
     )
 
-    const enriched = parsed.rows.map(r => ({
+    const { data: unpaid } = await getUnpaidBills([...new Set(parsed.rows.map(r => r.date.slice(0, 7)))])
+    setBills(unpaid || [])
+
+    const enriched = matchBills(parsed.rows.map(r => ({
       ...r,
       selected: !isDup(r),
       isDuplicate: isDup(r),
       categoryId: null,
-    }))
+    })), unpaid || [])
 
     setRows(enriched)
     setParseErrors(parsed.errors)
@@ -115,6 +121,7 @@ export default function CSVImporterModal({ open, accounts, userId, onClose, onSa
     setImportStatus({ done: 0, total: selected.length })
     let done = 0
     for (const r of selected) {
+      const bill = bills.find(b => b.id === r.billId)
       const payload = {
         user_id: userId,
         type: r.type,
@@ -122,11 +129,15 @@ export default function CSVImporterModal({ open, accounts, userId, onClose, onSa
         date: r.date,
         description: r.description,
         account_id: targetAccount.id,
-        category_id: r.categoryId || null,
+        category_id: r.categoryId || bill?.budget_items?.category_id || null,
+        bill_id: bill?.id || null,
+        budget_item_id: bill?.budget_item_id || null,
         payment_source: csvType === 'fatura' ? 'credit' : 'fixed_income',
         is_paid: true,
       }
-      const { error: err } = await addTransaction(payload)
+      let { error: err } = await addTransaction(payload)
+      // Marca a conta paga logo após a linha dela: uma falha no meio não deixa lançamento vinculado a conta em aberto.
+      if (!err && bill) ({ error: err } = await markBillsPaid([bill.id]))
       if (err) {
         setLoading(false)
         setError(`Falha na linha ${done + 1}: ${err.message || err}`)
@@ -152,7 +163,7 @@ export default function CSVImporterModal({ open, accounts, userId, onClose, onSa
       <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-2xl p-5 space-y-4 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between">
           <h2 className="font-bold text-lg text-white flex items-center gap-2">
-            <Upload size={18}/> Importar CSV NuBank
+            <Upload size={18}/> Importar extrato
           </h2>
           <button onClick={handleClose} className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-800" aria-label="Fechar">
             <X size={18}/>
@@ -230,7 +241,7 @@ export default function CSVImporterModal({ open, accounts, userId, onClose, onSa
             )}
 
             <div className="border border-gray-800 rounded-lg overflow-hidden">
-              <div className="max-h-80 overflow-y-auto">
+              <div className="max-h-80 overflow-auto">
                 <table className="w-full text-xs">
                   <thead className="bg-gray-800 sticky top-0">
                     <tr>
@@ -240,6 +251,7 @@ export default function CSVImporterModal({ open, accounts, userId, onClose, onSa
                       <th className="p-2 text-right">Valor</th>
                       <th className="p-2 text-left">Tipo</th>
                       <th className="p-2 text-left">Categoria</th>
+                      <th className="p-2 text-left" title="Conta pendente do plano que esta linha paga">Plano</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -280,6 +292,20 @@ export default function CSVImporterModal({ open, accounts, userId, onClose, onSa
                             {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                           </select>
                         </td>
+                        <td className="p-2">
+                          {r.type === 'expense' && (
+                            <select
+                              value={r.billId || ''}
+                              onChange={e => updateRow(i, { billId: e.target.value || null })}
+                              className="bg-gray-800 border border-gray-700 rounded px-1 py-0.5 text-xs text-gray-300 max-w-[130px]"
+                            >
+                              <option value="">—</option>
+                              {bills.filter(b => b.month_ref === r.date.slice(0, 7)).map(b => (
+                                <option key={b.id} value={b.id}>{b.name} · {fmt(b.amount)}</option>
+                              ))}
+                            </select>
+                          )}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -289,6 +315,7 @@ export default function CSVImporterModal({ open, accounts, userId, onClose, onSa
 
             <p className="text-xs text-gray-500">
               {rows.filter(r => r.selected).length} de {rows.length} selecionadas
+              {rows.some(r => r.selected && r.billId) && ` · ${rows.filter(r => r.selected && r.billId).length} pagam contas do plano`}
             </p>
 
             {importStatus && (

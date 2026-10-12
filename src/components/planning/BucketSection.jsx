@@ -2,8 +2,7 @@
 import { useState } from 'react'
 import { ChevronDown, ChevronUp } from 'lucide-react'
 import PlanItemRow from './PlanItemRow'
-
-const fmt = (v) => `R$ ${Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+import { fmt } from '../../lib/format'
 
 export default function BucketSection({ label, items, selected, onToggleSelect, onUnpay, onEdit, defaultOpen = true }) {
   const [open, setOpen] = useState(defaultOpen)

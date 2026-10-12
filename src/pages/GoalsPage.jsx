@@ -4,7 +4,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 import { useState, useMemo } from 'react'
 import { Plus, Trash2, Edit2, Target, Lock, CheckCircle2, Moon } from 'lucide-react'
-import { useGoals, useGoalLinkedTransactions, useCycles, useTransactionsByCycle } from '../hooks/useData'
+import { useGoals, useGoalLinkedTransactions, useCycles, useTransactions } from '../hooks/useData'
 import { upsertGoal, deleteGoal } from '../lib/db'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -106,7 +106,7 @@ export default function GoalsPage() {
     return cycles.find(c => c.start_date <= today && today <= c.end_date) || null
   }, [cycles])
 
-  const { transactions: cycleTxs } = useTransactionsByCycle(
+  const { transactions: cycleTxs } = useTransactions(
     currentCycle?.start_date,
     currentCycle?.end_date,
   )

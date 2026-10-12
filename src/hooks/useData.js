@@ -6,31 +6,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import * as db from '../lib/db'
 import { supabase } from '../lib/supabase'
-import { useDateRange } from '../contexts/DateRangeContext'
 
-export function useTransactions() {
-  const { range } = useDateRange()
-  const [transactions, setTransactions] = useState([])
-  const [loading, setLoading] = useState(true)
-
-  const load = useCallback(async () => {
-    if (!range) return
-    const { data } = await db.getTransactionsByRange(range.startDate, range.endDate)
-    setTransactions(data || [])
-    setLoading(false)
-  }, [range])
-
-  useEffect(() => { load() }, [load])
-
-  useEffect(() => {
-    const ch = supabase.channel('tx').on('postgres_changes', { event: '*', schema: 'public', table: 'transactions' }, load).subscribe()
-    return () => supabase.removeChannel(ch)
-  }, [load])
-
-  return { transactions, loading, refetch: load }
-}
-
-export function useTransactionsByCycle(startDate, endDate) {
+// Lançamentos com data entre startDate e endDate (inclusive).
+export function useTransactions(startDate, endDate) {
   const [transactions, setTransactions] = useState([])
   const [loading, setLoading] = useState(true)
 
@@ -75,33 +53,6 @@ export function useCycles() {
   return { cycles, loading, refetch: load }
 }
 
-export function useBills() {
-  const { range } = useDateRange()
-  const [bills, setBills] = useState([])
-  const [allBills, setAllBills] = useState([])
-  const [loading, setLoading] = useState(true)
-
-  const load = useCallback(async () => {
-    if (!range) return
-    const [{ data: ranged }, { data: all }] = await Promise.all([
-      db.getBillsByRange(range.startDate, range.endDate),
-      db.getAllBills(),
-    ])
-    setBills(ranged || [])
-    setAllBills(all || [])
-    setLoading(false)
-  }, [range])
-
-  useEffect(() => { load() }, [load])
-
-  useEffect(() => {
-    const ch = supabase.channel('bills').on('postgres_changes', { event: '*', schema: 'public', table: 'bills' }, load).subscribe()
-    return () => supabase.removeChannel(ch)
-  }, [load])
-
-  return { bills, allBills, loading, refetch: load }
-}
-
 export function useGoals() {
   const [goals, setGoals] = useState([])
   const [loading, setLoading] = useState(true)
@@ -114,36 +65,6 @@ export function useGoals() {
 
   useEffect(() => { load() }, [load])
   return { goals, loading, refetch: load }
-}
-
-export function useBudgetItems() {
-  const [items, setItems] = useState([])
-  const [categories, setCategories] = useState([])
-  const [loading, setLoading] = useState(true)
-
-  const load = useCallback(async () => {
-    const [{ data: its }, { data: cats }] = await Promise.all([db.getBudgetItems(), db.getCategories()])
-    setItems(its || [])
-    setCategories(cats || [])
-    setLoading(false)
-  }, [])
-
-  useEffect(() => { load() }, [load])
-
-  useEffect(() => {
-    const ch = supabase.channel('budget_items').on('postgres_changes', { event: '*', schema: 'public', table: 'budget_items' }, load).subscribe()
-    return () => supabase.removeChannel(ch)
-  }, [load])
-
-  return { items, categories, loading, refetch: load }
-}
-
-export function useBudgetCycle() {
-  const { range, cycles } = useDateRange()
-  const cycle = (cycles || []).find(c =>
-    c.start_date === range?.startDate && c.end_date === range?.endDate
-  ) || null
-  return { cycle, loading: !range, refetch: () => {} }
 }
 
 export function useGoalLinkedTransactions() {
@@ -167,6 +88,25 @@ export function useGoalLinkedTransactions() {
   }, [load])
 
   return { transactions, loading, refetch: load }
+}
+
+// Histórico inteiro de lançamentos ligados a contas — base do saldo por conta.
+export function useAccountTransactions() {
+  const [transactions, setTransactions] = useState([])
+
+  const load = useCallback(async () => {
+    const { data } = await db.getAccountTransactions()
+    setTransactions(data || [])
+  }, [])
+
+  useEffect(() => { load() }, [load])
+
+  useEffect(() => {
+    const ch = supabase.channel('tx-accounts').on('postgres_changes', { event: '*', schema: 'public', table: 'transactions' }, load).subscribe()
+    return () => supabase.removeChannel(ch)
+  }, [load])
+
+  return { transactions, refetch: load }
 }
 
 export function useAccounts() {

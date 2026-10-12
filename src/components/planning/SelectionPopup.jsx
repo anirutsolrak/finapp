@@ -1,7 +1,6 @@
 // ─── SelectionPopup — barra fixa de ação da seleção em massa (count + CTAs) ──
 import { X, Check } from 'lucide-react'
-
-const fmt = (v) => `R$ ${Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+import { fmt } from '../../lib/format'
 
 // Popup fixo no rodapé com count, total e CTAs Limpar/Confirmar.
 // Desktop: centralizado, margem do rodapé. Mobile: full-width, encostado (substitui nav, ver SelectionContext).

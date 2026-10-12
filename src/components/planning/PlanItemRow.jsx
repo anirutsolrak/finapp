@@ -1,8 +1,7 @@
 // ─── PlanItemRow — linha de um item no Planejamento (status da bill + ações) ─
 import { differenceInDays, parseISO, format } from 'date-fns'
 import { CheckCircle2, Circle, CheckSquare, Edit2, Lock } from 'lucide-react'
-
-const fmt = (v) => `R$ ${Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+import { fmt } from '../../lib/format'
 
 function statusLabel(bill) {
   if (!bill) return { label: '— ainda sem lembrete neste ciclo', color: 'text-gray-600' }

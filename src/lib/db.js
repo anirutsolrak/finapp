@@ -4,8 +4,6 @@
 // é o único lugar que conhece nomes de tabela e formato de payload.
 // ═══════════════════════════════════════════════════════════════════════════
 import { supabase } from './supabase'
-import { format, subMonths } from 'date-fns'
-import { computeReservaSnapshot } from './budgetEngine'
 
 // ─── CATEGORIES ─────────────────────────────────────────────────────────────
 export const getCategories = () =>
@@ -33,15 +31,6 @@ export const deleteBudgetItem = async (id) => {
 }
 
 // ─── TRANSACTIONS ────────────────────────────────────────────────────────────
-export const getTransactions = (monthRef) => {
-  let q = supabase
-    .from('transactions')
-    .select('*, categories(*), budget_items(name)')
-    .order('date', { ascending: false })
-  if (monthRef) q = q.eq('month_ref', monthRef)
-  return q
-}
-
 export const getTransactionsByRange = (startDate, endDate) =>
   supabase
     .from('transactions')
@@ -49,6 +38,14 @@ export const getTransactionsByRange = (startDate, endDate) =>
     .gte('date', startDate)
     .lte('date', endDate)
     .order('date', { ascending: false })
+
+// Todas as tx vinculadas a alguma conta, sem filtro de data: o saldo de uma conta
+// soma o histórico inteiro (computeAccountSnapshot).
+export const getAccountTransactions = () =>
+  supabase
+    .from('transactions')
+    .select('id, type, amount, account_id, from_account_id, to_account_id')
+    .or('account_id.not.is.null,from_account_id.not.is.null,to_account_id.not.is.null')
 
 // month_ref sempre segue a data; transferência usa só origem/destino, os demais só account_id.
 const normalizeTx = (data) => ({
@@ -71,18 +68,6 @@ export const deleteTransaction = (id) =>
   supabase.from('transactions').delete().eq('id', id)
 
 // ─── BILLS ──────────────────────────────────────────────────────────────────
-// budget_items(active, payment_source) permite detectar vínculos órfãos (item deletado no Planejamento)
-export const getAllBills = () =>
-  supabase.from('bills').select('*, budget_items(active, payment_source)').order('month_ref', { ascending: false }).order('due_date')
-
-export const getBillsByRange = (startDate, endDate) =>
-  supabase
-    .from('bills')
-    .select('*, budget_items(active, payment_source)')
-    .gte('due_date', startDate)
-    .lte('due_date', endDate)
-    .order('due_date')
-
 // Planejamento per-período: bills de um único month_ref (1 bill por item).
 export const getBillsByMonthRef = (monthRef) =>
   supabase
@@ -90,6 +75,19 @@ export const getBillsByMonthRef = (monthRef) =>
     .select('*, budget_items(active, payment_source)')
     .eq('month_ref', monthRef)
     .order('due_date')
+
+// Contas pendentes de alguns meses — usadas pra conciliar o extrato importado com o plano.
+export const getUnpaidBills = (monthRefs) =>
+  supabase
+    .from('bills')
+    .select('id, name, amount, month_ref, budget_item_id, budget_items(category_id)')
+    .eq('is_paid', false)
+    .in('month_ref', monthRefs)
+    .order('due_date')
+
+// Marca contas como pagas sem criar lançamento (o lançamento já existe, ex.: veio do extrato).
+export const markBillsPaid = (ids) =>
+  supabase.from('bills').update({ is_paid: true, paid_at: new Date().toISOString() }).in('id', ids)
 
 // Edita os campos de planejamento de UMA bill (escopo do período), sem mexer no template.
 export const updateBillPlanned = (billId, fields) =>
@@ -142,34 +140,7 @@ export const upsertGoal = (goal) => {
 export const deleteGoal = (id) =>
   supabase.from('goals').delete().eq('id', id)
 
-// ─── BUDGET CYCLES ───────────────────────────────────────────────────────────
-export const getBudgetCycle = async (monthRef) => {
-  const { data } = await supabase.from('budget_cycles').select('*').eq('month_ref', monthRef).maybeSingle()
-  return data
-}
-
-export const upsertBudgetCycle = async (cycle) => {
-  if (cycle.id) return supabase.from('budget_cycles').update({ ...cycle, updated_at: new Date().toISOString() }).eq('id', cycle.id).select().single()
-  // Novo ciclo: puxa reserva acumulada do mês anterior se não veio explícita
-  const payload = { ...cycle }
-  if (payload.reserva_acumulada == null) {
-    payload.reserva_acumulada = await computeRolloverReserva(payload.month_ref)
-  }
-  return supabase.from('budget_cycles').insert(payload).select().single()
-}
-
-// Saldo final de reserva de um ciclo = acumulada + aporte − usado (não negativo)
-export const computeRolloverReserva = async (monthRef) => {
-  if (!monthRef) return 0
-  const prevMonth = format(subMonths(new Date(monthRef + '-01'), 1), 'yyyy-MM')
-  const prevCycle = await getBudgetCycle(prevMonth)
-  if (!prevCycle) return 0
-  const { data: prevTxs } = await getTransactions(prevMonth)
-  const snap = computeReservaSnapshot({ cycle: prevCycle, transactions: prevTxs || [] })
-  return snap.disponivel
-}
-
-// ─── ACCOUNTS (Onda 3 — multi-conta) ────────────────────────────────────────
+// ─── ACCOUNTS ───────────────────────────────────────────────────────────────
 export const getAccounts = () =>
   supabase.from('accounts').select('*').eq('is_active', true).order('display_order').order('name')
 
