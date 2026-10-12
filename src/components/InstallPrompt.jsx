@@ -15,17 +15,14 @@ function isInStandaloneMode() {
 export default function InstallPrompt() {
   const [deferredPrompt, setDeferredPrompt] = useState(null)
   const [showAndroid, setShowAndroid] = useState(false)
-  const [showIOS, setShowIOS] = useState(false)
+  const [showIOS, setShowIOS] = useState(() => !isInStandaloneMode() && !sessionStorage.getItem(DISMISSED_KEY) && isIOS())
 
   useEffect(() => {
     // Não mostrar se já está instalado ou se foi dispensado
     if (isInStandaloneMode()) return
     if (sessionStorage.getItem(DISMISSED_KEY)) return
 
-    if (isIOS()) {
-      setShowIOS(true)
-      return
-    }
+    if (isIOS()) return
 
     const handler = (e) => {
       e.preventDefault()

@@ -64,10 +64,8 @@ create policy weekly_checkpoints_owner on public.weekly_checkpoints
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 -- ─── TODO ────────────────────────────────────────────────────────────────────
--- Atenção: aberta até para a anon key (é como o app de lista acessa hoje).
+-- Sem policy: a Lista saiu do app e a tabela fica inacessível pela API (os dados continuam).
 drop policy if exists public_all on todo.items;
-create policy public_all on todo.items
-  for all using (true) with check (true);
 
 -- ─── MEMBROS ─────────────────────────────────────────────────────────────────
 -- Depois de cadastrar os usuários no Auth:

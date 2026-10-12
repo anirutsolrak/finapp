@@ -2,7 +2,7 @@
 // AuthContext — sessão do usuário. Expõe user/profile/loading e as ações de
 // auth (signIn/signUp/signOut). Reage a onAuthStateChange do Supabase.
 // ═══════════════════════════════════════════════════════════════════════════
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 
 const AuthContext = createContext(null)
@@ -11,6 +11,11 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
+
+  const fetchProfile = useCallback(async (userId) => {
+    const { data } = await supabase.from('profiles').select('*').eq('id', userId).single()
+    setProfile(data)
+  }, [])
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -24,12 +29,7 @@ export function AuthProvider({ children }) {
       else setProfile(null)
     })
     return () => subscription.unsubscribe()
-  }, [])
-
-  async function fetchProfile(userId) {
-    const { data } = await supabase.from('profiles').select('*').eq('id', userId).single()
-    setProfile(data)
-  }
+  }, [fetchProfile])
 
   async function signIn(email, password) {
     const { error } = await supabase.auth.signInWithPassword({ email, password })

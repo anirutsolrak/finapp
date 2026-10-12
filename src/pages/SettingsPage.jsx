@@ -2,7 +2,7 @@
 // SettingsPage — perfil, preferências e gestão de contas/cartões.
 // Estrutura: labels/constantes → AccountModal → página principal (no fim).
 // ═══════════════════════════════════════════════════════════════════════════
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 import { Save, User, Mail, Bell, Wallet, Plus, Edit2, EyeOff, Palette } from 'lucide-react'
@@ -171,16 +171,13 @@ function AccountModal({ initial, userId, onClose, onSaved }) {
 // ─── Página ──────────────────────────────────────────────────────────────────
 export default function SettingsPage() {
   const { user, profile, fetchProfile } = useAuth()
-  const [form, setForm] = useState({ full_name: '', notify_email: '' })
+  const [edited, setEdited] = useState(null)
+  const form = edited ?? { full_name: profile?.full_name || '', notify_email: profile?.notify_email || '' }
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const { accounts, refetch: refetchAccounts } = useAccounts()
   const [accountModal, setAccountModal] = useState(null)
   const [theme, setTheme] = useState(() => localStorage.getItem('finapp:theme') || 'system')
-
-  useEffect(() => {
-    if (profile) setForm({ full_name: profile.full_name || '', notify_email: profile.notify_email || '' })
-  }, [profile])
 
   // Mesma regra do script inline do index.html: escolha salva ou tema do sistema.
   function changeTheme(pref) {
@@ -217,7 +214,7 @@ export default function SettingsPage() {
         <p className="font-semibold text-white flex items-center gap-2"><User size={16}/> Perfil</p>
         <div>
           <label className="label">Nome completo</label>
-          <input className="input" value={form.full_name} onChange={e => setForm(f => ({ ...f, full_name: e.target.value }))} />
+          <input className="input" value={form.full_name} onChange={e => setEdited({ ...form, full_name: e.target.value })} />
         </div>
         <div>
           <label className="label">E-mail da conta</label>
@@ -225,7 +222,7 @@ export default function SettingsPage() {
         </div>
         <div>
           <label className="label flex items-center gap-1"><Mail size={11}/> E-mail para alertas de vencimento</label>
-          <input className="input" type="email" placeholder="email@gmail.com" value={form.notify_email} onChange={e => setForm(f => ({ ...f, notify_email: e.target.value }))} />
+          <input className="input" type="email" placeholder="email@gmail.com" value={form.notify_email} onChange={e => setEdited({ ...form, notify_email: e.target.value })} />
           <p className="text-xs text-gray-500 mt-1">Receberá e-mails automáticos de contas a vencer</p>
         </div>
       </div>
