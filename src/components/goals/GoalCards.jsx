@@ -17,7 +17,7 @@ function GoalCard({ goal, onAction, onEdit, onDelete, onToggleComplete }) {
         </div>
         {onEdit && (
           <div className="flex flex-shrink-0">
-            <button onClick={() => onToggleComplete(goal)} className="text-gray-600 hover:text-emerald-400 p-1.5" aria-label={`Concluir ${goal.name}`} title="Marcar como concluída"><CheckCircle2 size={16}/></button>
+            <button onClick={() => onToggleComplete(goal)} className="text-gray-600 hover:text-brand-400 p-1.5" aria-label={`Concluir ${goal.name}`} title="Marcar como concluída"><CheckCircle2 size={16}/></button>
             <button onClick={() => onEdit(goal)} className="text-gray-600 hover:text-gray-400 p-1.5" aria-label={`Editar ${goal.name}`}><Edit2 size={15}/></button>
             <button onClick={() => onDelete(goal)} className="text-gray-600 hover:text-red-400 p-1.5" aria-label={`Excluir ${goal.name}`}><Trash2 size={15}/></button>
           </div>
@@ -26,13 +26,13 @@ function GoalCard({ goal, onAction, onEdit, onDelete, onToggleComplete }) {
 
       <div>
         <div className="w-full bg-gray-800 rounded-full h-2" role="progressbar" aria-valuenow={Math.round(pct)} aria-valuemin={0} aria-valuemax={100} aria-label={`Progresso de ${goal.name}`}>
-          <div className="h-2 rounded-full bg-emerald-500 transition-all" style={{ width: `${pct}%` }}/>
+          <div className="h-2 rounded-full bg-brand-500 transition-all" style={{ width: `${pct}%` }}/>
         </div>
         <div className="flex items-baseline justify-between gap-2 mt-1.5">
           <p className="text-sm text-gray-400">
             <span className="font-semibold text-white">{fmt(saved)}</span> de {fmt(target)}
           </p>
-          <p className="text-sm font-semibold text-emerald-400">{pct.toFixed(0)}%</p>
+          <p className="text-sm font-semibold text-brand-400">{pct.toFixed(0)}%</p>
         </div>
         <p className="text-xs text-gray-500">{missing > 0 ? `Faltam ${fmt(missing)}` : 'Valor alcançado'}</p>
       </div>

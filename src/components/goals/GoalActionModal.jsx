@@ -64,7 +64,7 @@ export default function GoalActionModal({ mode, goal, accounts, userId, onClose,
               </select>
             </div>
             <label className="flex items-center gap-2 text-sm text-gray-300">
-              <input type="checkbox" checked={form.complete} onChange={e => set('complete', e.target.checked)} className="accent-emerald-500 w-4 h-4"/>
+              <input type="checkbox" checked={form.complete} onChange={e => set('complete', e.target.checked)} className="accent-brand-500 w-4 h-4"/>
               Concluir a meta
             </label>
             <p className="text-xs text-gray-500">Cria uma despesa com o nome da meta nos lançamentos.</p>
@@ -72,7 +72,7 @@ export default function GoalActionModal({ mode, goal, accounts, userId, onClose,
         ) : (
           <>
             <label className="flex items-center gap-2 text-sm text-gray-300">
-              <input type="checkbox" checked={form.move} onChange={e => set('move', e.target.checked)} className="accent-emerald-500 w-4 h-4"/>
+              <input type="checkbox" checked={form.move} onChange={e => set('move', e.target.checked)} className="accent-brand-500 w-4 h-4"/>
               Também mover o dinheiro entre contas
             </label>
             {form.move ? (

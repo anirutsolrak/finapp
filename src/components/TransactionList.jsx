@@ -5,8 +5,8 @@ import { Edit2, Trash2 } from 'lucide-react'
 import { TX_TYPE_LABELS } from '../lib/budgetEngine'
 import { fmt } from '../lib/format'
 
-const AMOUNT_TONE = { income: 'text-emerald-400', expense: 'text-red-400', investment: 'text-purple-400', transfer: 'text-blue-400' }
-const chip = (on) => `px-3 py-1.5 rounded-full text-xs font-medium transition-all border ${on ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'border-gray-700 text-gray-400'}`
+const AMOUNT_TONE = { income: 'text-positive', expense: 'text-red-400', investment: 'text-purple-400', transfer: 'text-blue-400' }
+const chip = (on) => `px-3 py-1.5 rounded-full text-xs font-medium transition-all border ${on ? 'bg-brand-500/20 border-brand-500 text-brand-400' : 'border-gray-700 text-gray-400'}`
 
 function Row({ tx, accountName, goalName, onEdit, onDelete }) {
   // Transferência sem contas é só a reserva de uma meta: não há origem/destino pra mostrar.
@@ -23,7 +23,7 @@ function Row({ tx, accountName, goalName, onEdit, onDelete }) {
         </p>
         {(tx.bill_id || goalName || !tx.is_paid) && (
           <div className="flex gap-1.5 mt-1 flex-wrap">
-            {tx.bill_id && <span className="badge bg-emerald-500/15 text-emerald-400">Conta do plano</span>}
+            {tx.bill_id && <span className="badge bg-brand-500/15 text-brand-400">Conta do plano</span>}
             {goalName && <span className="badge bg-purple-500/15 text-purple-400">Meta: {goalName}</span>}
             {!tx.is_paid && <span className="badge bg-amber-500/20 text-amber-400">Pendente</span>}
           </div>

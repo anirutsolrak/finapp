@@ -1,36 +1,45 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// useData — hooks de dados do app. Cada hook carrega de src/lib/db e assina
-// Realtime (postgres_changes): qualquer mutação refaz o fetch automaticamente.
-// É aqui que se mexe pra mudar O QUE cada tela carrega.
+// useData — hooks de dados do app. Cada hook carrega de src/lib/db ao montar e
+// recarrega quando o app volta a ficar visível; as telas chamam `refetch` depois
+// de cada mutação. É aqui que se mexe pra mudar O QUE cada tela carrega.
 // ═══════════════════════════════════════════════════════════════════════════
 import { useState, useEffect, useCallback } from 'react'
 import * as db from '../lib/db'
 import { supabase } from '../lib/supabase'
 import { goalProgress } from '../lib/goals'
 
+// Carrega ao montar (e quando `load` muda) e de novo quando o app volta a ficar visível
+// (trocar de aba, reabrir o PWA): é o que mantém os dois aparelhos da família em dia.
+// `load` recebe isCurrent(): falso quando a resposta chega depois de o hook já ter mudado
+// de período, pra uma resposta atrasada do mês anterior não sobrescrever a tela.
+// shortcut: sem Realtime (as tabelas do app não estão na publication do Supabase, e o cliente
+// reaproveita canal de mesmo nome ao reassinar). Ligar se precisar de atualização ao vivo.
+function useAutoLoad(load) {
+  useEffect(() => {
+    let current = true
+    const run = () => load(() => current)
+    const onVisible = () => { if (document.visibilityState === 'visible') run() }
+    run()
+    document.addEventListener('visibilitychange', onVisible)
+    return () => { current = false; document.removeEventListener('visibilitychange', onVisible) }
+  }, [load])
+}
+
+const always = () => true
+
 // Lançamentos com data entre startDate e endDate (inclusive).
 export function useTransactions(startDate, endDate) {
   const [transactions, setTransactions] = useState([])
   const [loading, setLoading] = useState(true)
 
-  const load = useCallback(async () => {
-    if (!startDate || !endDate) {
-      setTransactions([])
-      setLoading(false)
-      return
-    }
-    const { data } = await db.getTransactionsByRange(startDate, endDate)
+  const load = useCallback(async (isCurrent = always) => {
+    const { data } = startDate && endDate ? await db.getTransactionsByRange(startDate, endDate) : { data: [] }
+    if (!isCurrent()) return
     setTransactions(data || [])
     setLoading(false)
   }, [startDate, endDate])
 
-  useEffect(() => { load() }, [load])
-
-  useEffect(() => {
-    const ch = supabase.channel('tx-cycle').on('postgres_changes', { event: '*', schema: 'public', table: 'transactions' }, load).subscribe()
-    return () => supabase.removeChannel(ch)
-  }, [load])
-
+  useAutoLoad(load)
   return { transactions, loading, refetch: load }
 }
 
@@ -48,16 +57,7 @@ export function useGoals() {
     setLoading(false)
   }, [])
 
-  useEffect(() => { load() }, [load])
-
-  useEffect(() => {
-    const ch = supabase.channel('goals')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'goals' }, load)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions' }, load)
-      .subscribe()
-    return () => supabase.removeChannel(ch)
-  }, [load])
-
+  useAutoLoad(load)
   return { goals, loading, refetch: load }
 }
 
@@ -70,13 +70,7 @@ export function useAccountTransactions() {
     setTransactions(data || [])
   }, [])
 
-  useEffect(() => { load() }, [load])
-
-  useEffect(() => {
-    const ch = supabase.channel('tx-accounts').on('postgres_changes', { event: '*', schema: 'public', table: 'transactions' }, load).subscribe()
-    return () => supabase.removeChannel(ch)
-  }, [load])
-
+  useAutoLoad(load)
   return { transactions, refetch: load }
 }
 
@@ -90,13 +84,7 @@ export function useAccounts() {
     setLoading(false)
   }, [])
 
-  useEffect(() => { load() }, [load])
-
-  useEffect(() => {
-    const ch = supabase.channel('accounts').on('postgres_changes', { event: '*', schema: 'public', table: 'accounts' }, load).subscribe()
-    return () => supabase.removeChannel(ch)
-  }, [load])
-
+  useAutoLoad(load)
   return { accounts, loading, refetch: load }
 }
 
@@ -107,14 +95,13 @@ export function overlayBill(item, bill) {
   return { ...item, name: bill.name, planned_amount: bill.amount, due_day: Number(bill.due_date.slice(8, 10)), bill }
 }
 
-// Carrega budget_items + bills de UM month_ref (período em foco no Planejamento),
-// joinados no client. Cada item ganha .bill (a bill daquele month_ref, se existir).
-// Per-período: o month_ref vem do seletor da tela, não do range global.
+// Carrega budget_items + bills de UM month_ref (o mês em foco), joinados no client.
+// Cada item ganha .bill (a bill daquele month_ref, se existir).
 export function useBudget(monthRef) {
   const [data, setData] = useState({ items: [], bills: [], categories: [], accounts: [] })
   const [loading, setLoading] = useState(true)
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (isCurrent = always) => {
     if (!monthRef) return
     const [{ data: items }, { data: bills }, { data: cats }, { data: accts }] = await Promise.all([
       db.getBudgetItems(),
@@ -122,24 +109,14 @@ export function useBudget(monthRef) {
       db.getCategories(),
       db.getAccounts(),
     ])
-    // Join 1:1 — unique constraint (budget_item_id, month_ref) garante no máx. 1 bill por item.
+    if (!isCurrent()) return
+    // Join 1:1 — índice único (budget_item_id, month_ref) garante no máx. 1 bill por item.
     const billByItemId = new Map((bills || []).map(b => [b.budget_item_id, b]))
     const itemsWithBill = (items || []).map(i => overlayBill(i, billByItemId.get(i.id)))
     setData({ items: itemsWithBill, bills: bills || [], categories: cats || [], accounts: accts || [] })
     setLoading(false)
   }, [monthRef])
 
-  useEffect(() => { load() }, [load])
-
-  useEffect(() => {
-    const ch = supabase.channel('budget-unified')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'budget_items' }, load)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'bills' }, load)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions' }, load)
-      .subscribe()
-    return () => supabase.removeChannel(ch)
-  }, [load])
-
+  useAutoLoad(load)
   return { ...data, loading, refetch: load }
 }
-

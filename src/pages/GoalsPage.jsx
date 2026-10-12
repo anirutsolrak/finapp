@@ -121,7 +121,7 @@ export default function GoalsPage() {
         <div className="card text-center py-10">
           <Target size={32} className="text-gray-700 mx-auto mb-2"/>
           <p className="text-gray-500 text-sm">Nenhuma meta ativa.</p>
-          <button onClick={() => setModal({})} className="text-emerald-400 text-sm font-medium mt-2">+ Criar a primeira meta</button>
+          <button onClick={() => setModal({})} className="text-brand-400 text-sm font-medium mt-2">+ Criar a primeira meta</button>
         </div>
       ) : (
         <GoalCards goals={active} accounts={accounts} userId={user?.id} onChanged={refetch}
@@ -135,7 +135,7 @@ export default function GoalsPage() {
             <div key={g.id} className="card flex items-center justify-between gap-2 py-3">
               <p className="text-sm text-gray-500 line-through truncate">{g.name}</p>
               <div className="flex items-center flex-shrink-0">
-                <button onClick={() => toggleComplete(g)} className="text-sm text-emerald-400 px-2 py-1">Reabrir</button>
+                <button onClick={() => toggleComplete(g)} className="text-sm text-brand-400 px-2 py-1">Reabrir</button>
                 <button onClick={() => handleDelete(g)} className="text-gray-600 hover:text-red-400 p-1.5" aria-label={`Excluir ${g.name}`}><Trash2 size={15}/></button>
               </div>
             </div>

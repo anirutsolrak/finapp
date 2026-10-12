@@ -51,8 +51,8 @@ usuários enxergam e editam os mesmos dados financeiros. O modelo mental é:
    que batem em mês e valor.
 4. O **saldo por conta** fecha a conferência com o banco.
 
-Tudo é **reativo via Supabase Realtime**: um lançamento feito por um membro
-aparece e recalcula os indicadores do outro em segundos, sem refresh.
+Os dados são **compartilhados pela família**: o que um membro lança aparece para o
+outro assim que ele voltar ao app (cada tela recarrega ao ficar visível).
 
 ## ✨ Funcionalidades
 
@@ -65,7 +65,8 @@ aparece e recalcula os indicadores do outro em segundos, sem refresh.
   duplicatas e conciliação com as contas pendentes do plano.
 - **Metas** — aparecem na tela principal; **Guardar** registra o dinheiro separado (com ou
   sem mover entre contas) e **Pagar** lança a despesa e conclui a meta, em dois toques.
-- **Tema** — claro (pastel) e escuro (neutro), seguindo o sistema ou escolhido em Configurações.
+- **Tema** — tons pastéis sobre neutros, com lavanda como cor principal; o modo escuro usa
+  as mesmas cores num tom mais fundo. Segue o sistema ou a escolha em Configurações.
 - **PWA** — instalável, com aviso de atualização e cache offline.
 
 ## 🧱 Stack
@@ -76,9 +77,9 @@ aparece e recalcula os indicadores do outro em segundos, sem refresh.
 | Estilo | Tailwind CSS 3 + PostCSS | utilitários de CSS |
 | Build | Vite 8 | dev server e bundle |
 | PWA | vite-plugin-pwa (Workbox) | app instalável + cache |
-| Backend | Supabase (Postgres) | persistência, Auth, Realtime, RPCs |
-| Estado | hooks + Realtime | carga e sincronização reativa |
-| Tema | variáveis CSS + Tailwind | claro pastel / escuro neutro |
+| Backend | Supabase (Postgres) | persistência, Auth, RLS, RPCs |
+| Estado | hooks de dados | carga, recarga ao voltar ao app e após cada mutação |
+| Tema | variáveis CSS + Tailwind | tons pastéis sobre neutros; o escuro é o mesmo, num tom mais fundo |
 | Datas | date-fns | manipulação de datas |
 | Testes | Vitest + Testing Library | unit/integração |
 | Deploy | Vercel | hospedagem (SPA rewrite) |
@@ -88,7 +89,7 @@ aparece e recalcula os indicadores do outro em segundos, sem refresh.
 ```
 Páginas (src/pages)         → telas (PlanningPage é a principal)
    ↓ usam
-Hooks (src/hooks/useData)   → carregam dados e assinam Realtime (postgres_changes)
+Hooks (src/hooks/useData)   → carregam dados; recarregam ao voltar ao app e após mutações
    ↓ chamam
 Data layer (src/lib/db)     → queries PostgREST + RPCs (pay_bill, unpay_bill)
    ↓
@@ -101,8 +102,12 @@ src/contexts          → Auth, Selection (seleção em massa)
 ```
 
 O período é sempre **um mês** (`month_ref`): as contas pelo mês de referência, os
-lançamentos pela data dentro do mês. Não há cache server-side: cada hook reassina as
-tabelas que lê, e toda mutação também recarrega explicitamente os dados da tela.
+lançamentos pela data dentro do mês. Não há cache: toda mutação recarrega os dados da
+tela, e cada hook recarrega quando o app volta a ficar visível. O Realtime do Supabase
+não é usado.
+
+**Acesso:** só quem está em `public.family_members` lê e escreve os dados (RLS). A anon
+key sozinha, ou um usuário que apenas se cadastrou, não vê nada.
 
 ## 🚀 Rodando localmente
 

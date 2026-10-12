@@ -13,7 +13,7 @@ Scripts SQL para subir o banco do FinAPP do zero. Todos são **idempotentes**
 | 1 | [`01_schema.sql`](01_schema.sql) | Schemas (`public`, `todo`), tabelas, constraints e índices |
 | 2 | [`02_functions.sql`](02_functions.sql) | Funções de trigger e RPCs (`pay_bill`, `unpay_bill`, materialização) |
 | 3 | [`03_triggers.sql`](03_triggers.sql) | Liga as funções às tabelas |
-| 4 | [`04_rls.sql`](04_rls.sql) | Habilita RLS e cria as policies (modelo *family share*) |
+| 4 | [`04_rls.sql`](04_rls.sql) | Habilita RLS e cria as policies (só `family_members` acessa) |
 | 5 | [`05_seed.sql`](05_seed.sql) | Categorias base + conta/ciclo inicial (opcional) |
 
 ## Pré-requisitos

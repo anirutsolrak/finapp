@@ -44,8 +44,8 @@ export default function LoginPage() {
     <div className="min-h-screen bg-gray-950 flex items-center justify-center p-4">
       <div className="w-full max-w-sm">
         <div className="flex flex-col items-center mb-8">
-          <div className="w-16 h-16 bg-emerald-500/20 rounded-2xl flex items-center justify-center mb-3 border border-emerald-500/30">
-            <DollarSign className="text-emerald-400" size={32} />
+          <div className="w-16 h-16 bg-brand-500/20 rounded-2xl flex items-center justify-center mb-3 border border-brand-500/30">
+            <DollarSign className="text-brand-400" size={32} />
           </div>
           <h1 className="text-2xl font-bold text-white">FinançasFamília</h1>
           <p className="text-gray-500 text-sm mt-1">Controle financeiro inteligente</p>
@@ -55,7 +55,7 @@ export default function LoginPage() {
           <div className="flex bg-gray-800 rounded-xl p-1 mb-6">
             {['login', 'register'].map(m => (
               <button key={m} onClick={() => { setMode(m); setError(''); setInfo('') }}
-                className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${mode === m ? 'bg-emerald-500 text-onaccent' : 'text-gray-400 hover:text-gray-200'}`}>
+                className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${mode === m ? 'bg-brand-500 text-onaccent' : 'text-gray-400 hover:text-gray-200'}`}>
                 {m === 'login' ? 'Entrar' : 'Cadastrar'}
               </button>
             ))}
@@ -87,9 +87,9 @@ export default function LoginPage() {
             )}
 
             {info && (
-              <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-3 py-2 flex items-start gap-2">
-                <Mail size={14} className="text-emerald-400 mt-0.5 flex-shrink-0" />
-                <p className="text-emerald-400 text-sm">{info}</p>
+              <div className="bg-brand-500/10 border border-brand-500/20 rounded-xl px-3 py-2 flex items-start gap-2">
+                <Mail size={14} className="text-brand-400 mt-0.5 flex-shrink-0" />
+                <p className="text-brand-400 text-sm">{info}</p>
               </div>
             )}
 
@@ -104,7 +104,7 @@ export default function LoginPage() {
           {mode === 'login' && (
             <p className="text-center text-gray-500 text-xs mt-4">
               Primeiro acesso?{' '}
-              <button onClick={() => setMode('register')} className="text-emerald-400 hover:text-emerald-300">Cadastre-se</button>
+              <button onClick={() => setMode('register')} className="text-brand-400 hover:text-brand-300">Cadastre-se</button>
             </p>
           )}
 

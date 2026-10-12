@@ -53,9 +53,10 @@ export default function PlanningPage() {
   const refreshAll = () => { refetch(); refetchTx(); refetchAccountTxs(); refetchGoals() }
   const activeGoals = goals.filter(g => !g.is_completed)
 
-  // O plano do mês = itens COM conta (bill) no mês em foco; os demais são templates a puxar.
+  // O plano do mês = itens COM conta (bill) no mês em foco. Dos demais, só os recorrentes são
+  // oferecidos pra puxar: item único (once) pertence ao mês em que foi criado.
   const inMonth = items.filter(i => i.bill)
-  const templates = items.filter(i => !i.bill)
+  const templates = items.filter(i => !i.bill && i.recurrence !== 'once')
   const shown = inMonth.filter(i => filter === 'all' || (filter === 'paid') === !!i.bill.is_paid)
   const byBucket = {
     account: shown.filter(i => bucketOf(i.payment_source) !== 'credit' && i.recurrence !== 'once'),
@@ -156,7 +157,7 @@ export default function PlanningPage() {
           </h1>
           <button onClick={() => changeMonth(1)} className="p-2 rounded-xl text-gray-400 hover:bg-gray-800" aria-label="Próximo mês"><ChevronRight size={20}/></button>
           {monthRef !== thisMonth() && (
-            <button onClick={() => changeMonth(0)} className="text-sm font-medium text-emerald-400 px-2 py-1">Hoje</button>
+            <button onClick={() => changeMonth(0)} className="text-sm font-medium text-brand-400 px-2 py-1">Hoje</button>
           )}
         </div>
         <div className="flex items-center gap-2">
@@ -187,7 +188,7 @@ export default function PlanningPage() {
           <div className="flex items-center gap-2 flex-wrap">
             {FILTERS.map(([v, label]) => (
               <button key={v} onClick={() => setFilter(v)} aria-pressed={filter === v}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium border ${filter === v ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'border-gray-700 text-gray-400'}`}>
+                className={`px-3 py-1.5 rounded-full text-xs font-medium border ${filter === v ? 'bg-brand-500/20 border-brand-500 text-brand-400' : 'border-gray-700 text-gray-400'}`}>
                 {label}
               </button>
             ))}
@@ -204,7 +205,7 @@ export default function PlanningPage() {
             {inMonth.length === 0 && (
               <div className="card text-center py-8">
                 <p className="text-gray-500 text-sm">Nenhuma conta planejada para este mês.</p>
-                <button onClick={() => setEditingItem({})} className="text-emerald-400 text-sm font-medium mt-2">+ Planejar a primeira conta</button>
+                <button onClick={() => setEditingItem({})} className="text-brand-400 text-sm font-medium mt-2">+ Planejar a primeira conta</button>
               </div>
             )}
             <BucketSection label="Da conta" items={byBucket.account} {...bucketProps}/>

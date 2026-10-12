@@ -177,14 +177,14 @@ export default function CSVImporterModal({ open, accounts, userId, onClose, onSa
               <div className="grid grid-cols-2 gap-2">
                 <button
                   onClick={() => setCsvType('extrato')}
-                  className={`p-3 rounded-lg border ${csvType === 'extrato' ? 'border-emerald-500 bg-emerald-500/10' : 'border-gray-700 bg-gray-800/40'} text-left`}
+                  className={`p-3 rounded-lg border ${csvType === 'extrato' ? 'border-brand-500 bg-brand-500/10' : 'border-gray-700 bg-gray-800/40'} text-left`}
                 >
                   <p className="text-sm font-semibold text-white">Extrato Conta Corrente</p>
                   <p className="text-xs text-gray-500">Data, Valor, Identificador, Descrição</p>
                 </button>
                 <button
                   onClick={() => setCsvType('fatura')}
-                  className={`p-3 rounded-lg border ${csvType === 'fatura' ? 'border-emerald-500 bg-emerald-500/10' : 'border-gray-700 bg-gray-800/40'} text-left`}
+                  className={`p-3 rounded-lg border ${csvType === 'fatura' ? 'border-brand-500 bg-brand-500/10' : 'border-gray-700 bg-gray-800/40'} text-left`}
                 >
                   <p className="text-sm font-semibold text-white">Fatura Cartão</p>
                   <p className="text-xs text-gray-500">date, title, amount</p>
@@ -198,7 +198,7 @@ export default function CSVImporterModal({ open, accounts, userId, onClose, onSa
                 type="file"
                 accept=".csv,text/csv"
                 onChange={e => setFile(e.target.files?.[0] || null)}
-                className="block w-full text-sm text-gray-300 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-emerald-500/20 file:text-emerald-400 hover:file:bg-emerald-500/30"
+                className="block w-full text-sm text-gray-300 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-brand-500/20 file:text-brand-400 hover:file:bg-brand-500/30"
               />
               {file && <p className="text-xs text-gray-500 mt-1 flex items-center gap-1"><FileText size={11}/> {file.name}</p>}
             </div>
@@ -262,7 +262,7 @@ export default function CSVImporterModal({ open, accounts, userId, onClose, onSa
                             type="checkbox"
                             checked={r.selected}
                             onChange={e => updateRow(i, { selected: e.target.checked })}
-                            className="accent-emerald-500 w-4 h-4"
+                            className="accent-brand-500 w-4 h-4"
                           />
                         </td>
                         <td className="p-2 text-gray-300">{r.date}</td>
@@ -319,7 +319,7 @@ export default function CSVImporterModal({ open, accounts, userId, onClose, onSa
             </p>
 
             {importStatus && (
-              <p className="text-xs text-emerald-400">Importando {importStatus.done} de {importStatus.total}...</p>
+              <p className="text-xs text-brand-400">Importando {importStatus.done} de {importStatus.total}...</p>
             )}
 
             {error && <p className="text-red-400 text-sm">{error}</p>}

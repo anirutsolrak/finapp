@@ -1,10 +1,13 @@
 -- ════════════════════════════════════════════════════════════════════════════
 -- FinAPP · 04 · RLS (Row Level Security)
 -- Modelo "family share": o app é usado por um casal que compartilha os mesmos
--- dados financeiros, então a maioria das tabelas é visível a QUALQUER usuário
--- autenticado (auth.uid() IS NOT NULL) em vez de filtrar por user_id.
+-- dados financeiros. Quem está em public.family_members lê e escreve tudo; quem
+-- não está (anon key sem login, ou alguém que só se cadastrou) não vê nada.
 -- Exceções privadas por usuário: chat_messages e weekly_checkpoints.
 -- Rode depois de 03_triggers.
+--
+-- Num banco novo: cadastre os usuários no Auth e DEPOIS inclua cada um em
+-- family_members (insert no fim deste arquivo), senão o app abre vazio.
 -- ════════════════════════════════════════════════════════════════════════════
 
 -- Habilita RLS em todas as tabelas.
@@ -20,43 +23,36 @@ alter table public.weekly_checkpoints enable row level security;
 alter table public.chat_messages      enable row level security;
 alter table todo.items                enable row level security;
 
--- ─── COMPARTILHADO: qualquer autenticado lê/escreve ──────────────────────────
-drop policy if exists family_share_accounts on public.accounts;
-create policy family_share_accounts on public.accounts
-  for all using (auth.uid() is not null) with check (auth.uid() is not null);
+-- ─── QUEM É DA FAMÍLIA ───────────────────────────────────────────────────────
+create table if not exists public.family_members (
+  user_id  uuid primary key references auth.users(id) on delete cascade,
+  added_at timestamptz not null default now()
+);
+alter table public.family_members enable row level security;  -- sem policy: invisível pela API
 
-drop policy if exists family_share_goals on public.goals;
-create policy family_share_goals on public.goals
-  for all using (auth.uid() is not null) with check (auth.uid() is not null);
+-- SECURITY DEFINER para conseguir ler family_members (que não tem policy).
+create or replace function public.is_family()
+returns boolean language sql stable security definer set search_path = '' as $$
+  select exists (select 1 from public.family_members where user_id = (select auth.uid()));
+$$;
+revoke all on function public.is_family() from public, anon;
+grant execute on function public.is_family() to authenticated;
 
-drop policy if exists family_share_budget_items on public.budget_items;
-create policy family_share_budget_items on public.budget_items
-  for all using (auth.uid() is not null) with check (auth.uid() is not null);
-
-drop policy if exists family_share_budget_cycles on public.budget_cycles;
-create policy family_share_budget_cycles on public.budget_cycles
-  for all using (auth.uid() is not null) with check (auth.uid() is not null);
-
-drop policy if exists family_share_bills on public.bills;
-create policy family_share_bills on public.bills
-  for all using (auth.uid() is not null) with check (auth.uid() is not null);
-
-drop policy if exists family_share_transactions on public.transactions;
-create policy family_share_transactions on public.transactions
-  for all using (auth.uid() is not null) with check (auth.uid() is not null);
-
--- ─── REFERÊNCIA: leitura/escrita aberta a autenticados ───────────────────────
-drop policy if exists all_see_categories on public.categories;
-create policy all_see_categories on public.categories
-  for all using (true) with check (true);
-
-drop policy if exists all_see_profiles on public.profiles;
-create policy all_see_profiles on public.profiles
-  for select using (true);
-
-drop policy if exists profiles_insert_service on public.profiles;
-create policy profiles_insert_service on public.profiles
-  for insert with check (true);
+-- ─── COMPARTILHADO: só a família lê/escreve ──────────────────────────────────
+-- Uma policy por tabela (family_only). Remove as antigas, que aceitavam qualquer
+-- usuário logado (auth.uid() is not null) ou até a anon key (using (true)).
+do $$
+declare t text; p record;
+begin
+  foreach t in array array['accounts','bills','budget_cycles','budget_items','categories','goals','profiles','transactions'] loop
+    for p in select policyname from pg_policies where schemaname = 'public' and tablename = t loop
+      execute format('drop policy %I on public.%I', p.policyname, t);
+    end loop;
+    execute format(
+      'create policy family_only on public.%I for all to authenticated
+         using ((select public.is_family())) with check ((select public.is_family()))', t);
+  end loop;
+end $$;
 
 -- ─── PRIVADO POR USUÁRIO ─────────────────────────────────────────────────────
 drop policy if exists own_chat on public.chat_messages;
@@ -68,6 +64,12 @@ create policy weekly_checkpoints_owner on public.weekly_checkpoints
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 -- ─── TODO ────────────────────────────────────────────────────────────────────
+-- Atenção: aberta até para a anon key (é como o app de lista acessa hoje).
 drop policy if exists public_all on todo.items;
 create policy public_all on todo.items
   for all using (true) with check (true);
+
+-- ─── MEMBROS ─────────────────────────────────────────────────────────────────
+-- Depois de cadastrar os usuários no Auth:
+--   insert into public.family_members (user_id)
+--   select id from auth.users where email in ('voce@exemplo.com', 'parceiro@exemplo.com');

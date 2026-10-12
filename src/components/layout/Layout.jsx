@@ -24,8 +24,8 @@ export default function Layout() {
       {/* ── Desktop Sidebar ── */}
       <aside className="hidden md:flex flex-col w-60 bg-gray-900 border-r border-gray-800 p-4">
         <div className="flex items-center gap-3 px-1 mb-8">
-          <div className="w-9 h-9 bg-emerald-500/20 rounded-xl flex items-center justify-center border border-emerald-500/30">
-            <DollarSign className="text-emerald-400" size={18} />
+          <div className="w-9 h-9 bg-brand-500/20 rounded-xl flex items-center justify-center border border-brand-500/30">
+            <DollarSign className="text-brand-400" size={18} />
           </div>
           <div>
             <p className="text-sm font-bold text-white leading-none">FinançasFamília</p>
@@ -38,7 +38,7 @@ export default function Layout() {
             <NavLink key={to} to={to} end={to === '/'}
               className={({ isActive }) =>
                 `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${isActive
-                  ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                  ? 'bg-brand-500/20 text-brand-400 border border-brand-500/30'
                   : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800'}`
               }>
               <Icon size={18} /><span>{label}</span>
@@ -68,7 +68,7 @@ export default function Layout() {
             <NavLink key={to} to={to} end={to === '/'}
               className={({ isActive }) =>
                 `flex-1 flex flex-col items-center justify-center py-2 gap-0.5 transition-colors ${
-                  isActive ? 'text-emerald-400' : 'text-gray-500'
+                  isActive ? 'text-brand-400' : 'text-gray-500'
                 }`
               }>
               <Icon size={22} />

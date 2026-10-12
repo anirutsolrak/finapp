@@ -153,7 +153,7 @@ function AccountModal({ initial, userId, onClose, onSaved }) {
         </div>
 
         <div className="flex items-center gap-2">
-          <input type="checkbox" id="aactive" checked={form.is_active} onChange={e => set('is_active', e.target.checked)} className="accent-emerald-500 w-4 h-4"/>
+          <input type="checkbox" id="aactive" checked={form.is_active} onChange={e => set('is_active', e.target.checked)} className="accent-brand-500 w-4 h-4"/>
           <label htmlFor="aactive" className="text-sm text-gray-300">Ativa</label>
         </div>
 
@@ -269,7 +269,7 @@ export default function SettingsPage() {
         <div className="grid grid-cols-3 gap-2">
           {[['system', 'Sistema'], ['light', 'Claro'], ['dark', 'Escuro']].map(([k, label]) => (
             <button key={k} onClick={() => changeTheme(k)} aria-pressed={theme === k}
-              className={`py-2 rounded-xl text-sm font-medium border transition-all ${theme === k ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'border-gray-700 text-gray-400 hover:border-gray-600'}`}>
+              className={`py-2 rounded-xl text-sm font-medium border transition-all ${theme === k ? 'bg-brand-500/20 border-brand-500 text-brand-400' : 'border-gray-700 text-gray-400 hover:border-gray-600'}`}>
               {label}
             </button>
           ))}

@@ -54,10 +54,10 @@ export default function InstallPrompt() {
 
   return (
     <div className="fixed top-0 left-0 right-0 z-[100] p-3 md:p-4">
-      <div className="max-w-sm mx-auto bg-gray-900 border border-emerald-500/30 rounded-2xl p-4 shadow-xl animate-in">
+      <div className="max-w-sm mx-auto bg-gray-900 border border-brand-500/30 rounded-2xl p-4 shadow-xl animate-in">
         <div className="flex items-start gap-3">
-          <div className="w-10 h-10 bg-emerald-500/20 rounded-xl flex items-center justify-center flex-shrink-0 border border-emerald-500/30">
-            <Download size={18} className="text-emerald-400" />
+          <div className="w-10 h-10 bg-brand-500/20 rounded-xl flex items-center justify-center flex-shrink-0 border border-brand-500/30">
+            <Download size={18} className="text-brand-400" />
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold text-white">Instalar FinançasFamília</p>
@@ -80,7 +80,7 @@ export default function InstallPrompt() {
             <button onClick={dismiss} className="flex-1 text-xs text-gray-400 py-2 rounded-xl bg-gray-800 hover:bg-gray-700 transition-colors">
               Agora não
             </button>
-            <button onClick={install} className="flex-1 text-xs font-semibold text-onaccent py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 transition-colors">
+            <button onClick={install} className="flex-1 text-xs font-semibold text-onaccent py-2 rounded-xl bg-brand-600 hover:bg-brand-500 transition-colors">
               Instalar
             </button>
           </div>

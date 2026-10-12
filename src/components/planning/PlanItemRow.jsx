@@ -5,7 +5,7 @@ import { fmt } from '../../lib/format'
 
 function statusLabel(bill) {
   if (!bill) return { label: '— ainda sem lembrete neste ciclo', color: 'text-gray-600' }
-  if (bill.is_paid) return { label: bill.paid_at ? `Pago em ${format(parseISO(bill.paid_at), 'dd/MM')}` : 'Pago', color: 'text-emerald-400' }
+  if (bill.is_paid) return { label: bill.paid_at ? `Pago em ${format(parseISO(bill.paid_at), 'dd/MM')}` : 'Pago', color: 'text-positive' }
   const d = differenceInDays(parseISO(bill.due_date), new Date())
   if (d < 0)  return { label: `Atrasado há ${Math.abs(d)}d`, color: 'text-red-400' }
   if (d === 0) return { label: 'Vence hoje!',                color: 'text-red-400' }
@@ -35,13 +35,13 @@ export default function PlanItemRow({ item, isSelected, onToggleSelect, onUnpay,
       : <Circle size={22}/>
 
   const iconColor = isPaid
-    ? 'text-emerald-400'
+    ? 'text-positive'
     : isSelected
-      ? 'text-emerald-400'
-      : bill ? 'text-gray-600 hover:text-emerald-400' : 'text-gray-800'
+      ? 'text-brand-400'
+      : bill ? 'text-gray-600 hover:text-brand-400' : 'text-gray-800'
 
   return (
-    <div className={`flex items-center gap-3 p-3 rounded-xl border ${isPaid ? 'bg-gray-900 border-gray-800 opacity-70' : isSelected ? 'bg-emerald-500/5 border-emerald-500/30' : 'bg-gray-900 border-gray-800'}`}>
+    <div className={`flex items-center gap-3 p-3 rounded-xl border ${isPaid ? 'bg-gray-900 border-gray-800 opacity-70' : isSelected ? 'bg-brand-500/5 border-brand-500/30' : 'bg-gray-900 border-gray-800'}`}>
       <button
         onClick={handleClick}
         disabled={!bill}

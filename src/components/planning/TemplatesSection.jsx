@@ -35,7 +35,7 @@ export default function TemplatesSection({ items, onAdd, onEdit }) {
               </div>
               <button onClick={() => onEdit(i)} className="text-gray-600 hover:text-gray-400 p-1"><Edit2 size={14}/></button>
               <button onClick={() => add(i)} disabled={adding === i.id}
-                className="text-xs font-medium px-2.5 py-1.5 rounded-lg border border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10 disabled:opacity-50">
+                className="text-xs font-medium px-2.5 py-1.5 rounded-lg border border-brand-500/40 text-brand-400 hover:bg-brand-500/10 disabled:opacity-50">
                 {adding === i.id ? '...' : '+ Adicionar a este mês'}
               </button>
             </div>

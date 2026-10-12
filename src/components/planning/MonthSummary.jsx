@@ -34,9 +34,9 @@ export default function MonthSummary({ items, transactions, accounts, accountTra
     <div className="card space-y-4">
       <div>
         <div className="grid grid-cols-3 gap-3">
-          <Stat label="Entrou" value={t.entrou} tone="text-emerald-400"/>
+          <Stat label="Entrou" value={t.entrou} tone="text-positive"/>
           <Stat label="Saiu" value={t.saiu} tone="text-red-400"/>
-          <Stat label="Líquido" value={t.liquido} tone={t.liquido >= 0 ? 'text-emerald-400' : 'text-red-400'}/>
+          <Stat label="Líquido" value={t.liquido} tone={t.liquido >= 0 ? 'text-positive' : 'text-red-400'}/>
         </div>
         <p className="text-xs text-gray-500 mt-1">Só o que passou pela conta corrente neste mês. Compras no cartão não entram.</p>
       </div>
@@ -49,10 +49,10 @@ export default function MonthSummary({ items, transactions, accounts, accountTra
           </p>
         </div>
         <div className="w-full bg-gray-800 rounded-full h-2 my-2" role="progressbar" aria-valuenow={Math.round(pct)} aria-valuemin={0} aria-valuemax={100} aria-label="Contas pagas no mês">
-          <div className="h-2 rounded-full bg-emerald-500 transition-all" style={{ width: `${pct}%` }}/>
+          <div className="h-2 rounded-full bg-brand-500 transition-all" style={{ width: `${pct}%` }}/>
         </div>
         <p className="text-sm text-gray-400">
-          Falta pagar <span className={`font-semibold ${t.falta > 0 ? 'text-amber-400' : 'text-emerald-400'}`}>{fmt(t.falta)}</span>
+          Falta pagar <span className={`font-semibold ${t.falta > 0 ? 'text-amber-400' : 'text-positive'}`}>{fmt(t.falta)}</span>
         </p>
       </div>
 
