@@ -55,7 +55,7 @@ export default function LoginPage() {
           <div className="flex bg-gray-800 rounded-xl p-1 mb-6">
             {['login', 'register'].map(m => (
               <button key={m} onClick={() => { setMode(m); setError(''); setInfo('') }}
-                className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${mode === m ? 'bg-emerald-500 text-white' : 'text-gray-400 hover:text-gray-200'}`}>
+                className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${mode === m ? 'bg-emerald-500 text-onaccent' : 'text-gray-400 hover:text-gray-200'}`}>
                 {m === 'login' ? 'Entrar' : 'Cadastrar'}
               </button>
             ))}
@@ -95,7 +95,7 @@ export default function LoginPage() {
 
             <button type="submit" disabled={loading} className="btn-primary w-full flex items-center justify-center gap-2">
               {loading
-                ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ? <div className="w-4 h-4 border-2 border-onaccent border-t-transparent rounded-full animate-spin" />
                 : mode === 'login' ? <LogIn size={16} /> : <UserPlus size={16} />}
               {mode === 'login' ? 'Entrar' : 'Criar conta'}
             </button>

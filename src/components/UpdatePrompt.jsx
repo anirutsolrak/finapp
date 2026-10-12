@@ -40,7 +40,7 @@ export default function UpdatePrompt() {
             <button onClick={() => setNeedRefresh(false)} className="flex-1 text-xs text-gray-400 py-2 rounded-xl bg-gray-800 hover:bg-gray-700 transition-colors">
               Depois
             </button>
-            <button onClick={() => updateServiceWorker(true)} className="flex-1 text-xs font-semibold text-white py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 transition-colors">
+            <button onClick={() => updateServiceWorker(true)} className="flex-1 text-xs font-semibold text-onaccent py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 transition-colors">
               Atualizar
             </button>
           </div>

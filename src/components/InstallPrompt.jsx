@@ -80,7 +80,7 @@ export default function InstallPrompt() {
             <button onClick={dismiss} className="flex-1 text-xs text-gray-400 py-2 rounded-xl bg-gray-800 hover:bg-gray-700 transition-colors">
               Agora não
             </button>
-            <button onClick={install} className="flex-1 text-xs font-semibold text-white py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 transition-colors">
+            <button onClick={install} className="flex-1 text-xs font-semibold text-onaccent py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 transition-colors">
               Instalar
             </button>
           </div>

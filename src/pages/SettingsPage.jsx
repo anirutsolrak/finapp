@@ -5,7 +5,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
-import { Save, User, Mail, Bell, Wallet, Plus, Edit2, EyeOff } from 'lucide-react'
+import { Save, User, Mail, Bell, Wallet, Plus, Edit2, EyeOff, Palette } from 'lucide-react'
 import { useAccounts } from '../hooks/useData'
 import { upsertAccount, deactivateAccount } from '../lib/db'
 
@@ -176,10 +176,20 @@ export default function SettingsPage() {
   const [saved, setSaved] = useState(false)
   const { accounts, refetch: refetchAccounts } = useAccounts()
   const [accountModal, setAccountModal] = useState(null)
+  const [theme, setTheme] = useState(() => localStorage.getItem('finapp:theme') || 'system')
 
   useEffect(() => {
     if (profile) setForm({ full_name: profile.full_name || '', notify_email: profile.notify_email || '' })
   }, [profile])
+
+  // Mesma regra do script inline do index.html: escolha salva ou tema do sistema.
+  function changeTheme(pref) {
+    setTheme(pref)
+    if (pref === 'system') localStorage.removeItem('finapp:theme')
+    else localStorage.setItem('finapp:theme', pref)
+    document.documentElement.dataset.theme = pref !== 'system' ? pref
+      : matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+  }
 
   async function saveProfile() {
     setSaving(true)
@@ -251,6 +261,19 @@ export default function SettingsPage() {
             ))}
           </div>
         )}
+      </div>
+
+      {/* Aparência */}
+      <div className="card space-y-3">
+        <p className="font-semibold text-white flex items-center gap-2"><Palette size={16}/> Aparência</p>
+        <div className="grid grid-cols-3 gap-2">
+          {[['system', 'Sistema'], ['light', 'Claro'], ['dark', 'Escuro']].map(([k, label]) => (
+            <button key={k} onClick={() => changeTheme(k)} aria-pressed={theme === k}
+              className={`py-2 rounded-xl text-sm font-medium border transition-all ${theme === k ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'border-gray-700 text-gray-400 hover:border-gray-600'}`}>
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* PWA */}

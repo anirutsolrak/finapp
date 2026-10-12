@@ -125,7 +125,7 @@ export default function DateRangeSelector() {
                 <button
                   onClick={applyCustom}
                   disabled={!customStart || !customEnd || customStart > customEnd}
-                  className="flex-1 px-3 py-1.5 text-xs bg-emerald-600 text-white rounded hover:bg-emerald-500 disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed"
+                  className="flex-1 px-3 py-1.5 text-xs bg-emerald-600 text-onaccent rounded hover:bg-emerald-500 disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed"
                 >
                   Aplicar
                 </button>

@@ -2,6 +2,65 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ─── Paleta ────────────────────────────────────────────────────────────────
+   Valores em "R G B" (consumidos por tailwind.config.js). A escala gray é
+   semântica: 950 fundo da página, 900 cartão, 800/700 campo e borda,
+   600→100 texto (dica → corpo). No tema claro ela é invertida.
+   src/theme.test.js garante contraste >= 4.5:1 de todo texto nos dois temas. */
+:root {
+  color-scheme: light;
+  --gray-950: 244 241 234;
+  --gray-900: 255 253 249;
+  --gray-800: 236 231 221;
+  --gray-700: 221 214 201;
+  --gray-600: 111 104 94;
+  --gray-500: 98 92 83;
+  --gray-400: 84 79 71;
+  --gray-300: 62 58 52;
+  --gray-200: 46 43 39;
+  --gray-100: 36 34 31;
+  --gray-50: 28 26 23;
+  --ink: 27 25 22;
+  --onaccent: 16 36 28;
+  --emerald-500: 93 190 154;
+  --emerald-600: 72 170 134;
+  --emerald-text: 22 101 76;
+  --red-text: 185 28 28;
+  --amber-text: 161 72 6;
+  --purple-text: 126 34 206;
+  --blue-text: 29 78 216;
+  --cyan-text: 14 104 130;
+  --teal-text: 15 108 100;
+  --sky-text: 3 105 161;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --gray-950: 24 24 27;
+  --gray-900: 33 33 37;
+  --gray-800: 44 44 49;
+  --gray-700: 63 63 70;
+  --gray-600: 142 142 152;
+  --gray-500: 161 161 170;
+  --gray-400: 185 185 193;
+  --gray-300: 212 212 216;
+  --gray-200: 228 228 231;
+  --gray-100: 240 240 242;
+  --gray-50: 250 250 250;
+  --ink: 250 250 250;
+  --onaccent: 16 36 28;
+  --emerald-500: 86 190 152;
+  --emerald-600: 70 170 134;
+  --emerald-text: 110 211 172;
+  --red-text: 248 113 113;
+  --amber-text: 251 191 36;
+  --purple-text: 192 132 252;
+  --blue-text: 96 165 250;
+  --cyan-text: 34 211 238;
+  --teal-text: 94 234 212;
+  --sky-text: 125 211 252;
+}
+
 @layer base {
   * { box-sizing: border-box; }
   body {
@@ -17,9 +76,9 @@
 
 @layer components {
   .card { @apply bg-gray-900 border border-gray-800 rounded-2xl p-4; }
-  .btn-primary { @apply bg-emerald-500 hover:bg-emerald-400 text-white font-semibold px-4 py-2 rounded-xl transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed; }
+  .btn-primary { @apply bg-emerald-500 hover:bg-emerald-600 text-onaccent font-semibold px-4 py-2 rounded-xl transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed; }
   .btn-ghost { @apply bg-gray-800 hover:bg-gray-700 text-gray-200 px-4 py-2 rounded-xl transition-all active:scale-95; }
-  .btn-danger { @apply bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded-xl transition-all active:scale-95; }
+  .btn-secondary { @apply border border-gray-700 hover:bg-gray-800 text-gray-200 px-4 py-2 rounded-xl transition-all active:scale-95; }
   .input { @apply bg-gray-800 border border-gray-700 rounded-xl px-3 py-2 text-gray-100 w-full focus:outline-none focus:border-emerald-500 transition-colors placeholder:text-gray-500; }
   .label { @apply text-xs font-medium text-gray-400 uppercase tracking-wide mb-1 block; }
   .badge { @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium; }
