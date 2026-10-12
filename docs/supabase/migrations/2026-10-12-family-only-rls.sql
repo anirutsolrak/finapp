@@ -70,7 +70,7 @@ begin
     execute format('select count(*) from public.%I', t) into n;
     if n <> 0 then raise exception 'anon ainda ve % linhas em %', n, t; end if;
   end loop;
-  execute 'reset role';
+  execute 'set local role postgres';
 
   perform set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000001","role":"authenticated"}', true);
   execute 'set local role authenticated';
@@ -78,7 +78,7 @@ begin
     execute format('select count(*) from public.%I', t) into n;
     if n <> 0 then raise exception 'usuario de fora ainda ve % linhas em %', n, t; end if;
   end loop;
-  execute 'reset role';
+  execute 'set local role postgres';
 
   foreach uid in array members loop
     perform set_config('request.jwt.claims', jsonb_build_object('sub', uid, 'role', 'authenticated')::text, true);
@@ -89,7 +89,7 @@ begin
         raise exception 'membro % ve % de % linhas em %', uid, n, total ->> t, t;
       end if;
     end loop;
-    execute 'reset role';
+    execute 'set local role postgres';
   end loop;
 
   perform set_config('request.jwt.claims', '', true);
