@@ -16,15 +16,15 @@ importe o extrato do banco para manter tudo em dia — sozinho ou a dois.
 </div>
 
 > [!IMPORTANT]
-> **Reescrita em andamento.** O código original foi movido para a branch
+> **Versão nova, enxuta.** O código original foi movido para a branch
 > [`legado`](../../tree/legado). Ele foi lançado com funcionalidades demais de uma
-> vez, várias pouco úteis e mal pensadas. A `main` agora caminha para uma versão
-> mais objetiva, enxuta e útil, focada em **planejamento + lançamentos** (com
-> importação de extrato) e **metas**.
+> vez, várias pouco úteis e mal pensadas. A `main` é a versão mais objetiva, enxuta
+> e útil, focada em **planejamento + lançamentos** (com importação de extrato) e
+> **metas**.
 >
-> Saíram nesta fase: Dashboard, Lista e toda a parte de IA (chat/assistente e
-> categorização). Essas funcionalidades serão reescritas e reintroduzidas depois
-> do lançamento da versão nova.
+> Saíram nesta fase: Dashboard, Lista, toda a parte de IA (chat/assistente e
+> categorização), os ciclos de orçamento e o "ritmo de gasto". O que fizer falta será
+> reescrito e reintroduzido depois do lançamento da versão nova.
 
 ## 📑 Sumário
 
@@ -63,7 +63,8 @@ aparece e recalcula os indicadores do outro em segundos, sem refresh.
 - **Lançamentos** — CRUD de transações com filtro por tipo e conta.
 - **Importador de extrato** — CSV de conta e de fatura do Nubank, com revisão, detecção de
   duplicatas e conciliação com as contas pendentes do plano.
-- **Metas** — progresso por vínculo de transações (`goal_id`).
+- **Metas** — aparecem na tela principal; **Guardar** registra o dinheiro separado (com ou
+  sem mover entre contas) e **Pagar** lança a despesa e conclui a meta, em dois toques.
 - **Tema** — claro (pastel) e escuro (neutro), seguindo o sistema ou escolhido em Configurações.
 - **PWA** — instalável, com aviso de atualização e cache offline.
 
@@ -95,6 +96,7 @@ Supabase Postgres           → schema, triggers e RLS (ver docs/supabase)
 
 src/lib/budgetEngine  → cálculos puros (resumo do mês, saldo por conta), testados
 src/lib/reconcile     → casa linhas do extrato com contas pendentes do plano
+src/lib/goals         → progresso da meta e lançamentos de guardar/pagar
 src/contexts          → Auth, Selection (seleção em massa)
 ```
 
@@ -142,10 +144,10 @@ para rodar em ordem, manual (SQL Editor) ou automatizado (Supabase CLI / `psql`)
 ```
 src/
   pages/         Telas (Planning, Goals, Settings, Login)
-  components/    UI reutilizável (modais, lista de lançamentos, planning/, layout/)
+  components/    UI reutilizável (modais, lista de lançamentos, planning/, goals/, layout/)
   hooks/         useData.js — hooks de dados com Realtime
   contexts/      Auth, Selection
-  lib/           db, supabase, budgetEngine, reconcile, nubankCSV, format
+  lib/           db, supabase, budgetEngine, reconcile, goals, nubankCSV, format
   test/          setup e smoke tests
 docs/
   supabase/      Scripts SQL de setup do banco

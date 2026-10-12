@@ -6,6 +6,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import * as db from '../lib/db'
 import { supabase } from '../lib/supabase'
+import { goalProgress } from '../lib/goals'
 
 // Lançamentos com data entre startDate e endDate (inclusive).
 export function useTransactions(startDate, endDate) {
@@ -33,61 +34,31 @@ export function useTransactions(startDate, endDate) {
   return { transactions, loading, refetch: load }
 }
 
-export function useCycles() {
-  const [cycles, setCycles] = useState([])
-  const [loading, setLoading] = useState(true)
-
-  const load = useCallback(async () => {
-    const { data } = await supabase.from('budget_cycles').select('*').order('start_date', { ascending: false })
-    setCycles(data || [])
-    setLoading(false)
-  }, [])
-
-  useEffect(() => { load() }, [load])
-
-  useEffect(() => {
-    const ch = supabase.channel('cycles-list').on('postgres_changes', { event: '*', schema: 'public', table: 'budget_cycles' }, load).subscribe()
-    return () => supabase.removeChannel(ch)
-  }, [load])
-
-  return { cycles, loading, refetch: load }
-}
-
+// Metas já com o progresso calculado (goal.progress), a partir dos lançamentos vinculados.
 export function useGoals() {
   const [goals, setGoals] = useState([])
   const [loading, setLoading] = useState(true)
 
   const load = useCallback(async () => {
-    const { data } = await db.getGoals()
-    setGoals(data || [])
-    setLoading(false)
-  }, [])
-
-  useEffect(() => { load() }, [load])
-  return { goals, loading, refetch: load }
-}
-
-export function useGoalLinkedTransactions() {
-  const [transactions, setTransactions] = useState([])
-  const [loading, setLoading] = useState(true)
-
-  const load = useCallback(async () => {
-    const { data } = await supabase
-      .from('transactions')
-      .select('id, amount, type, date, goal_id')
-      .not('goal_id', 'is', null)
-    setTransactions(data || [])
+    const [{ data: gs }, { data: txs }] = await Promise.all([
+      db.getGoals(),
+      supabase.from('transactions').select('id, amount, type, goal_id').not('goal_id', 'is', null),
+    ])
+    setGoals((gs || []).map(g => ({ ...g, progress: goalProgress(g, txs || []) })))
     setLoading(false)
   }, [])
 
   useEffect(() => { load() }, [load])
 
   useEffect(() => {
-    const ch = supabase.channel('tx-goals').on('postgres_changes', { event: '*', schema: 'public', table: 'transactions' }, load).subscribe()
+    const ch = supabase.channel('goals')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'goals' }, load)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions' }, load)
+      .subscribe()
     return () => supabase.removeChannel(ch)
   }, [load])
 
-  return { transactions, loading, refetch: load }
+  return { goals, loading, refetch: load }
 }
 
 // Histórico inteiro de lançamentos ligados a contas — base do saldo por conta.

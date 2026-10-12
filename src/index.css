@@ -82,10 +82,6 @@
   .input { @apply bg-gray-800 border border-gray-700 rounded-xl px-3 py-2 text-gray-100 w-full focus:outline-none focus:border-emerald-500 transition-colors placeholder:text-gray-500; }
   .label { @apply text-xs font-medium text-gray-400 uppercase tracking-wide mb-1 block; }
   .badge { @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium; }
-  .chip-income { @apply badge bg-emerald-500/20 text-emerald-400; }
-  .chip-expense { @apply badge bg-red-500/20 text-red-400; }
-  .chip-investment { @apply badge bg-purple-500/20 text-purple-400; }
-  .chip-fixed { @apply badge bg-amber-500/20 text-amber-400; }
   .section-title { @apply text-xs font-bold uppercase tracking-widest text-gray-500 mb-3; }
 }
 
@@ -94,15 +90,3 @@
   to { opacity: 1; transform: translateY(0); }
 }
 .animate-in { animation: fadeIn 0.2s ease-out; }
-
-@keyframes slideUp {
-  from { transform: translateY(100%); }
-  to { transform: translateY(0); }
-}
-.animate-slide-up { animation: slideUp 0.22s ease-out; }
-
-@keyframes slideRight {
-  from { transform: translateX(100%); }
-  to { transform: translateX(0); }
-}
-.animate-slide-right { animation: slideRight 0.22s ease-out; }

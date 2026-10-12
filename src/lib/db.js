@@ -144,9 +144,6 @@ export const deleteGoal = (id) =>
 export const getAccounts = () =>
   supabase.from('accounts').select('*').eq('is_active', true).order('display_order').order('name')
 
-export const getAllAccounts = () =>
-  supabase.from('accounts').select('*').order('display_order').order('name')
-
 export const upsertAccount = (account) => {
   if (account.id) {
     return supabase

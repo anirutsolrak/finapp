@@ -14,6 +14,7 @@ import { bucketOf } from '../lib/budgetEngine'
 import { useAuth } from '../contexts/AuthContext'
 import { useSelection } from '../contexts/SelectionContext'
 import MonthSummary from '../components/planning/MonthSummary'
+import GoalCards from '../components/goals/GoalCards'
 import BucketSection from '../components/planning/BucketSection'
 import TemplatesSection from '../components/planning/TemplatesSection'
 import ItemModal from '../components/planning/ItemModal'
@@ -37,7 +38,7 @@ export default function PlanningPage() {
   const { items, categories, accounts, loading, refetch } = useBudget(monthRef)
   const { transactions, loading: txLoading, refetch: refetchTx } = useTransactions(startDate, endDate)
   const { transactions: accountTxs, refetch: refetchAccountTxs } = useAccountTransactions()
-  const { goals } = useGoals()
+  const { goals, refetch: refetchGoals } = useGoals()
 
   const [filter, setFilter] = useState('all')
   const [editingItem, setEditingItem] = useState(null)
@@ -48,8 +49,9 @@ export default function PlanningPage() {
   const [submitting, setSubmitting] = useState(false)
   const [dialogError, setDialogError] = useState('')
 
-  // Não depende do Realtime estar ligado no projeto: toda mutação recarrega as três fontes.
-  const refreshAll = () => { refetch(); refetchTx(); refetchAccountTxs() }
+  // Não depende do Realtime estar ligado no projeto: toda mutação recarrega as fontes da tela.
+  const refreshAll = () => { refetch(); refetchTx(); refetchAccountTxs(); refetchGoals() }
+  const activeGoals = goals.filter(g => !g.is_completed)
 
   // O plano do mês = itens COM conta (bill) no mês em foco; os demais são templates a puxar.
   const inMonth = items.filter(i => i.bill)
@@ -170,6 +172,14 @@ export default function PlanningPage() {
 
       <MonthSummary items={inMonth} transactions={transactions} accounts={accounts} accountTransactions={accountTxs}/>
 
+      {/* Metas: sempre à vista, com guardar/pagar a dois toques */}
+      {activeGoals.length > 0 && (
+        <section className="space-y-3">
+          <h2 className="text-base font-bold text-white">Metas</h2>
+          <GoalCards goals={activeGoals} accounts={accounts} userId={user?.id} onChanged={refreshAll}/>
+        </section>
+      )}
+
       {/* Plano do mês */}
       <section className="space-y-3">
         <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -210,7 +220,7 @@ export default function PlanningPage() {
         <h2 className="text-base font-bold text-white">
           Lançamentos <span className="text-sm font-normal text-gray-500">{transactions.length}</span>
         </h2>
-        <TransactionList transactions={transactions} accounts={accounts} loading={txLoading} onEdit={setEditingTx} onDelete={handleDeleteTx}/>
+        <TransactionList transactions={transactions} accounts={accounts} goals={goals} loading={txLoading} onEdit={setEditingTx} onDelete={handleDeleteTx}/>
       </section>
 
       {editingItem !== null && (

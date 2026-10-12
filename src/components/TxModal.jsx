@@ -24,7 +24,9 @@ export default function TxModal({ onClose, onSaved, initial, categories, userId,
     if (!form.description || !form.amount) return setError('Preencha descrição e valor.')
     if (!form.payment_source) return setError('Selecione a fonte de pagamento.')
     if (form.type !== 'transfer' && !form.account_id) return setError('Selecione a conta.')
-    if (form.type === 'transfer') {
+    // Transferência vinculada a uma meta pode não ter contas: é só a reserva (não move dinheiro).
+    const isGoalReserve = form.goal_id && !form.from_account_id && !form.to_account_id
+    if (form.type === 'transfer' && !isGoalReserve) {
       if (!form.from_account_id || !form.to_account_id) return setError('Selecione a conta de origem e destino.')
       if (form.from_account_id === form.to_account_id) return setError('Origem e destino devem ser diferentes.')
     }

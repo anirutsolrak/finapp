@@ -8,10 +8,10 @@ import { fmt } from '../lib/format'
 const AMOUNT_TONE = { income: 'text-emerald-400', expense: 'text-red-400', investment: 'text-purple-400', transfer: 'text-blue-400' }
 const chip = (on) => `px-3 py-1.5 rounded-full text-xs font-medium transition-all border ${on ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'border-gray-700 text-gray-400'}`
 
-function Row({ tx, accountName, onEdit, onDelete }) {
-  const where = tx.type === 'transfer'
-    ? `${accountName(tx.from_account_id) || '?'} → ${accountName(tx.to_account_id) || '?'}`
-    : accountName(tx.account_id)
+function Row({ tx, accountName, goalName, onEdit, onDelete }) {
+  // Transferência sem contas é só a reserva de uma meta: não há origem/destino pra mostrar.
+  const where = tx.type !== 'transfer' ? accountName(tx.account_id)
+    : (tx.from_account_id || tx.to_account_id) && `${accountName(tx.from_account_id) || '?'} → ${accountName(tx.to_account_id) || '?'}`
   return (
     <div className="card flex items-center gap-3 py-3">
       <div className="flex-1 min-w-0">
@@ -21,9 +21,10 @@ function Row({ tx, accountName, onEdit, onDelete }) {
           {where && ` · ${where}`}
           {tx.categories && ` · ${tx.categories.icon || ''} ${tx.categories.name}`}
         </p>
-        {(tx.bill_id || !tx.is_paid) && (
-          <div className="flex gap-1.5 mt-1">
+        {(tx.bill_id || goalName || !tx.is_paid) && (
+          <div className="flex gap-1.5 mt-1 flex-wrap">
             {tx.bill_id && <span className="badge bg-emerald-500/15 text-emerald-400">Conta do plano</span>}
+            {goalName && <span className="badge bg-purple-500/15 text-purple-400">Meta: {goalName}</span>}
             {!tx.is_paid && <span className="badge bg-amber-500/20 text-amber-400">Pendente</span>}
           </div>
         )}
@@ -39,7 +40,7 @@ function Row({ tx, accountName, onEdit, onDelete }) {
   )
 }
 
-export default function TransactionList({ transactions, accounts, loading, onEdit, onDelete }) {
+export default function TransactionList({ transactions, accounts, goals = [], loading, onEdit, onDelete }) {
   const [type, setType] = useState('all')
   const [accountId, setAccountId] = useState('all')
 
@@ -74,7 +75,7 @@ export default function TransactionList({ transactions, accounts, loading, onEdi
         </div>
       ) : (
         <div className="space-y-2">
-          {shown.map(tx => <Row key={tx.id} tx={tx} accountName={accountName} onEdit={onEdit} onDelete={onDelete}/>)}
+          {shown.map(tx => <Row key={tx.id} tx={tx} accountName={accountName} goalName={goals.find(g => g.id === tx.goal_id)?.name} onEdit={onEdit} onDelete={onDelete}/>)}
         </div>
       )}
     </div>
